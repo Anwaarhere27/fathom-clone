@@ -55,6 +55,17 @@ function retryDelay(error: unknown, attempt: number) {
  */
 const MAX_WAIT_MS = Number(process.env.GROQ_MAX_WAIT_MS ?? 90_000);
 
+/**
+ * Free-tier limits differ per model in kind, not just size. Qwen enforces an
+ * output-tokens-per-minute ceiling of 1,000 and rejects the request outright if
+ * the reservation exceeds it, whatever the input size. Reserving more than a
+ * model will allow simply fails, so clamp rather than discover it at runtime.
+ */
+function outputCap(model: string) {
+  if (model.includes("qwen")) return 900;
+  return 8_000;
+}
+
 function isRetryable(error: unknown) {
   const status = (error as { status?: number })?.status;
   return status === 429 || (typeof status === "number" && status >= 500);
@@ -144,7 +155,7 @@ export async function complete(
         model,
         messages,
         temperature,
-        max_completion_tokens: maxTokens,
+        max_completion_tokens: Math.min(maxTokens, outputCap(model)),
         // reasoning_effort is a gpt-oss parameter; other families reject it.
         ...(model.includes("gpt-oss") ? { reasoning_effort: "low" as const } : {}),
         ...(json ? { response_format: { type: "json_object" as const } } : {}),
