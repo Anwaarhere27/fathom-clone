@@ -4,339 +4,347 @@
   "turns": [
     {
       "speaker": "Daniel Okonkwo",
-      "text": "Good morning, everyone. Just a quick heads‑up before we dive in—Yuki and Tom are out today, so they'll be catching up on the notes later."
+      "text": "Good morning, everyone-just a quick heads-up before we dive in: Maya and Sam are out sick this week, so they'll be offline for any tickets or PR reviews."
+    },
+    {
+      "speaker": "Yuki Tanaka",
+      "text": "Got it, thanks for the note, Daniel."
+    },
+    {
+      "speaker": "Tom Bradley",
+      "text": "Yeah, hope they feel better soon."
     },
     {
       "speaker": "Rachel Goldstein",
-      "text": "Got it, thanks for the update."
+      "text": "Sure thing, I'll keep that in mind when I'm pairing later."
     },
     {
       "speaker": "Chris Lindqvist",
-      "text": "No problem, Daniel."
+      "text": "Alright, noted."
     },
     {
       "speaker": "Daniel Okonkwo",
-      "text": "Alright, moving on then. Since we’re a bit short‑handed, let’s keep the standup tight. Yuki, you were on the query planner rewrite—any quick highlights before we go full speed?"
+      "text": "Okay, moving on-since they're not here, any blockers that would have needed their input should be rerouted; if you need something from Maya or Sam, drop a Slack message and I'll try to cover or get them a quick sync when they're back."
     },
     {
       "speaker": "Yuki Tanaka",
-      "text": "Sure thing. I’m still ahead of schedule on the planner, but I hit a surprise with the nested aggregation logic; it’s pulling in an extra join that we didn’t anticipate."
+      "text": "Will do. Also, just to confirm, the sprint board still shows their tasks as 'in progress,' right?"
     },
     {
       "speaker": "Daniel Okonkwo",
-      "text": "Okay, good to know. Tom, I know you’re not on the call, but can you drop a quick note in the channel about the events table migration status?"
+      "text": "Exactly, the board reflects their current tickets as still in progress, but we’ll mark them as blocked if anything critical comes up, and I’ll make sure we don’t let any deadlines slip because of their absence."
+    },
+    {
+      "speaker": "Yuki Tanaka",
+      "text": "So the query planner rewrite is actually ahead of schedule; we hit the core planner unit tests yesterday and they all passed on the first run."
+    },
+    {
+      "speaker": "Daniel Okonkwo",
+      "text": "Nice, that’s good news."
+    },
+    {
+      "speaker": "Yuki Tanaka",
+      "text": "Yeah, and the new cost-based optimizer is already showing a 12% reduction in average latency on our internal benchmark suite for the sales dashboard queries."
     },
     {
       "speaker": "Tom Bradley",
-      "text": "Will do—I'll post the latest script logs and flag the maintenance window issue as soon as I’m back."
+      "text": "Impressive, did you pull the numbers from the latest 3.2-release data?"
+    },
+    {
+      "speaker": "Yuki Tanaka",
+      "text": "Exactly, I ran it against the 3.2-release snapshot from Tuesday, same data set we use for the quarterly performance reports."
     },
     {
       "speaker": "Rachel Goldstein",
-      "text": "Sounds good, thanks."
+      "text": "Cool, any gotchas we should know about?"
+    },
+    {
+      "speaker": "Yuki Tanaka",
+      "text": "Actually, there is one surprise: the nested aggregation paths we thought would be a simple depth-first walk are triggering a stack overflow on queries that have more than seven levels of grouping, like the new multi-dimensional cohort analysis you’re working on."
+    },
+    {
+      "speaker": "Chris Lindqvist",
+      "text": "That sounds like a recursion limit issue."
+    },
+    {
+      "speaker": "Yuki Tanaka",
+      "text": "Right, the planner builds a recursive CTE for each nested GROUP BY, and the Postgres planner stack defaults to 1000 frames, but our generated plan can exceed that when you have deep hierarchies, so it aborts with ERROR: stack depth limit exceeded."
     },
     {
       "speaker": "Daniel Okonkwo",
-      "text": "Thanks, team. Let’s keep the momentum, and I’ll sync with support on that maintenance window later today."
+      "text": "Can we bump the limit?"
     },
     {
       "speaker": "Yuki Tanaka",
-      "text": "So, the rewrite is still on track—I’m about three days ahead of the original estimate, which puts us at roughly day 12 of a 15‑day sprint."
+      "text": "We can, but it’s a temporary band-aid; the real fix is to refactor the planner to emit an iterative plan for deep nests, which will take another day or two to prototype."
+    },
+    {
+      "speaker": "Tom Bradley",
+      "text": "Got it, so it’s not a blocker for the current sprint, just something to track."
+    },
+    {
+      "speaker": "Yuki Tanaka",
+      "text": "Exactly, the current tickets are fine, but I’ll add a spike story for the iterative approach and we’ll prioritize it after the migration work is done."
+    },
+    {
+      "speaker": "Tom Bradley",
+      "text": "Alright, so the events table migration is scheduled for tomorrow night, but I just hit a snag-our script needs a full DB lock for about 45 minutes, and we don’t have a maintenance window carved out yet."
     },
     {
       "speaker": "Daniel Okonkwo",
-      "text": "Nice, that gives us some breathing room. Anything else?"
+      "text": "Wait, we’re assuming a lock? I thought we were doing it online with logical replication?"
     },
     {
-      "speaker": "Yuki Tanaka",
-      "text": "Yeah, the nested aggregation piece threw me a curveball."
+      "speaker": "Tom Bradley",
+      "text": "We tried the online approach, but the bulk delete of old partitions triggers a cascade that blows up the transaction log; the only safe path right now is the offline lock."
     },
     {
-      "speaker": "Yuki Tanaka",
-      "text": "When I added support for multi‑level GROUP BY, the planner started injecting an extra join to the events_meta table that we never wrote into the spec."
+      "speaker": "Chris Lindqvist",
+      "text": "Yeah, the backfill job we ran last week showed the same pattern-once you hit more than 10 M rows the write-ahead log stalls."
+    },
+    {
+      "speaker": "Tom Bradley",
+      "text": "Exactly, and the script also does a column type change on the event_payload JSONB, which requires a rewrite of the whole table. That rewrite can’t happen while the table is serving traffic, otherwise we get deadlocks with the real-time ingestion workers."
     },
     {
       "speaker": "Rachel Goldstein",
-      "text": "Extra join? Where does that come from?"
+      "text": "So are we looking at a full outage? How long would that be, roughly?"
+    },
+    {
+      "speaker": "Tom Bradley",
+      "text": "Based on the dry-run on staging, about 42 minutes total-30 minutes for the rewrite, plus 12 minutes for the index rebuild and validation. We’d need to coordinate with support to put the API gateway into read-only mode during that window."
+    },
+    {
+      "speaker": "Daniel Okonkwo",
+      "text": "Alright, I’ll take ownership of scheduling that window. I’ll ping support and see if we can slip it in between the 2 am and 3 am maintenance slot on Thursday, since we have a low traffic window then."
+    },
+    {
+      "speaker": "Tom Bradley",
+      "text": "Sounds good. I’ll drop the updated migration plan into the #infra-ops channel, and I’ll add a note about the lock requirement so nobody starts the ingestion pipeline during that period."
+    },
+    {
+      "speaker": "Chris Lindqvist",
+      "text": "What if we spin up a shadow table and sync changes via logical decoding? Could that avoid the full lock?"
+    },
+    {
+      "speaker": "Tom Bradley",
+      "text": "We tried that last sprint for the user_events table, but the volume of updates blew the replication slot; the lag grew to 15 minutes and we’d still have to cut over, which defeats the purpose."
     },
     {
       "speaker": "Yuki Tanaka",
-      "text": "Turns out the optimizer sees the aggregated field as a foreign key reference, so it tries to pull the dimension row for each bucket. In our case that dimension lives in events_meta, which doubles the row count on the inner loop."
+      "text": "Also, the nested aggregation work means the planner will be hitting the same rewrite path; adding a shadow copy just doubles the I/O."
+    },
+    {
+      "speaker": "Rachel Goldstein",
+      "text": "But the UI team can tolerate a brief read-only mode, right? If we can keep ingestion alive and just block reads, maybe that's acceptable."
+    },
+    {
+      "speaker": "Daniel Okonkwo",
+      "text": "Read-only mode still requires us to pause the API gateway; that’s effectively an outage for our clients, even if the backend keeps writing."
     },
     {
       "speaker": "Chris Lindqvist",
-      "text": "Does that affect the cost model?"
+      "text": "What about using pg_repack to do an online rebuild? It can rewrite the table in chunks without a full lock."
+    },
+    {
+      "speaker": "Tom Bradley",
+      "text": "pg_repack works for simple column adds, but we need to change the JSONB column type and drop old partitions; pg_repack can’t handle that cascade safely, it would still need a brief exclusive lock at the end."
+    },
+    {
+      "speaker": "Rachel Goldstein",
+      "text": "So the only way to stay fully online is to break the migration into multiple smaller steps, but that adds complexity and risk."
+    },
+    {
+      "speaker": "Daniel Okonkwo",
+      "text": "Exactly, and with the sprint deadline looming, the safest path is the offline lock we discussed, then we can revisit an online strategy for the next iteration."
+    },
+    {
+      "speaker": "Chris Lindqvist",
+      "text": "Guys, I just got the latest cost report from CloudWatch and we're seeing a $12,500 jump this week compared to the baseline."
+    },
+    {
+      "speaker": "Daniel Okonkwo",
+      "text": "Whoa, that's a big spike. Any idea what's driving it?"
+    },
+    {
+      "speaker": "Chris Lindqvist",
+      "text": "Yes, it traces back to the backfill job we kicked off on March 12th for the historic events; it's been running nonstop and pulling about 850 GB of data per hour."
     },
     {
       "speaker": "Yuki Tanaka",
-      "text": "Exactly—cost estimates jumped from 1.2 × 10⁶ to 3.8 × 10⁶ rows scanned, which would push latency past our 200 ms SLA for the analytics endpoint."
+      "text": "Is that the same job that was supposed to finish in three days?"
+    },
+    {
+      "speaker": "Chris Lindqvist",
+      "text": "Exactly, but because of the new JSONB schema change we added, the job's query planner kept re-optimizing and ended up doing a full table scan on every batch, which blew up both CPU and I/O."
+    },
+    {
+      "speaker": "Tom Bradley",
+      "text": "I saw the CPU usage hit 95% on the primary replica yesterday, but I thought the backfill was throttled?"
+    },
+    {
+      "speaker": "Chris Lindqvist",
+      "text": "We set a throttle, but the logical replication slot kept falling behind, so the system auto-scaled the read replicas, and each scale-up added roughly $1,200 per hour in instance costs."
+    },
+    {
+      "speaker": "Rachel Goldstein",
+      "text": "So the cost spike is essentially the side effect of the backfill not being rate-limited properly and the auto-scaling kicking in?"
+    },
+    {
+      "speaker": "Chris Lindqvist",
+      "text": "That's right. If we pause the backfill now and re-run it with a tighter batch size-say 5 million rows per chunk-and enforce a max of two extra replicas, we should bring the weekly spend back under $3,000."
     },
     {
       "speaker": "Daniel Okonkwo",
-      "text": "Can we prune that join?"
+      "text": "Alright, I'll have the ops team put a hold on the backfill and adjust the scaling policies. Thanks for catching that, Chris."
+    },
+    {
+      "speaker": "Rachel Goldstein",
+      "text": "Okay, quick update on the cohort builder-performance is still lagging behind the SLA we promised to Fielder last month."
+    },
+    {
+      "speaker": "Daniel Okonkwo",
+      "text": "Right, the Fielder team flagged that the latency hit 12 seconds on the UI, they’re not happy."
+    },
+    {
+      "speaker": "Rachel Goldstein",
+      "text": "We dug into the logs and found the main culprit is the new aggregation layer we added for dynamic segment filters; it’s doing a full scan on the users table for each filter combo."
     },
     {
       "speaker": "Yuki Tanaka",
-      "text": "I’ve added a hint to bypass the metadata lookup when the aggregation key is already resolved upstream, and benchmarked it: we’re back to ~180 ms on the dev cluster, so it’s within target."
+      "text": "Is that the same code path that the query planner rewrite touched?"
+    },
+    {
+      "speaker": "Rachel Goldstein",
+      "text": "Exactly, Yuki. The planner thinks it can push down the predicates, but because of the JSONB payload size, the planner picks a sequential scan instead of the index we built on the tenant_id column."
     },
     {
       "speaker": "Tom Bradley",
-      "text": "Good to hear, Yuki. Let me know if you need any help tweaking the hint syntax."
+      "text": "So we’re basically re-processing millions of rows per request?"
+    },
+    {
+      "speaker": "Rachel Goldstein",
+      "text": "Yes, and on top of that the cache warm-up isn’t happening because the cache key includes the full filter JSON, which is unique per request, so we never hit a hit."
+    },
+    {
+      "speaker": "Rachel Goldstein",
+      "text": "My proposal: we add a materialized view that pre-aggregates the most common filter combos-Fielder’s top three use cases cover about 70% of traffic-and we rewrite the builder to fall back to that view when the filter matches, otherwise we fall back to the current path but with a hard timeout of 5 seconds."
+    },
+    {
+      "speaker": "Daniel Okonkwo",
+      "text": "Sounds like a plan. Let's get a ticket in for the view and have Yuki scope the rewrite. We'll update Fielder by EOD."
+    },
+    {
+      "speaker": "Daniel Okonkwo",
+      "text": "Alright, folks, we have a separate blocker on the events table migration that we need to nail down today."
+    },
+    {
+      "speaker": "Tom Bradley",
+      "text": "Right, the script needs a maintenance window, but we haven't booked anything yet."
+    },
+    {
+      "speaker": "Daniel Okonkwo",
+      "text": "Exactly. I'm going to take ownership of that and coordinate with the support team to lock down a slot."
     },
     {
       "speaker": "Yuki Tanaka",
-      "text": "Will do. I’ll push the updated planner config to the staging branch by EOD, and we can run the full suite tomorrow."
-    },
-    {
-      "speaker": "Tom Bradley",
-      "text": "Okay, so the events table migration is basically ready on my side—schema changes, index rebuilds, the whole thing—but we hit a snag with the actual data move."
+      "text": "Do we have any constraints on when the window can be? Our rewrite is still in QA, but we don't want to clash with the nightly batch."
     },
     {
       "speaker": "Daniel Okonkwo",
-      "text": "What's the snag?"
+      "text": "The migration touches the events partitioning, so we need to run it when the write traffic is at its lowest-ideally between 02:00 and 04:00 UTC on a weekday. That way we avoid the 3 am US-East batch and the 4 am EU sync."
     },
     {
       "speaker": "Tom Bradley",
-      "text": "We need a maintenance window to lock the table; otherwise the live writes will clash with the bulk copy, and we could lose rows or get duplicate keys."
-    },
-    {
-      "speaker": "Rachel Goldstein",
-      "text": "Can't we do it online with logical replication?"
-    },
-    {
-      "speaker": "Tom Bradley",
-      "text": "We looked into logical replication, but the events table is 12 TB and the replication lag would be huge; plus the current CDC pipeline can't keep up with the write rate of ~8 k writes per second."
-    },
-    {
-      "speaker": "Chris Lindqvist",
-      "text": "Do we have any window this week? The support team said the next low‑traffic period is Thursday night around 02:00 UTC."
-    },
-    {
-      "speaker": "Tom Bradley",
-      "text": "That's the only slot I see that wouldn't impact the nightly batch jobs, but I haven't booked it yet because I need confirmation that the ops crew can spin up the extra node for the migration."
+      "text": "That window works for me, but we should also confirm the replica lag is under 5 seconds before we start."
     },
     {
       "speaker": "Daniel Okonkwo",
-      "text": "I'll take that on and coordinate with support to lock Thursday 02:00‑04:00 UTC. I'll also make sure the extra node is provisioned."
-    },
-    {
-      "speaker": "Tom Bradley",
-      "text": "Great, thanks. I’ll freeze the code and push the migration script to the staging environment tonight so we can do a dry run before the window."
-    },
-    {
-      "speaker": "Rachel Goldstein",
-      "text": "I get the pain point, but have we fully scoped the risk of a live migration? If we can chunk the copy in 1‑GB batches maybe we avoid a full lock."
-    },
-    {
-      "speaker": "Tom Bradley",
-      "text": "Chunking could work, but the event payloads are variable size; we'd still need to pause writes at each chunk boundary to guarantee consistency, which defeats the purpose of staying online."
+      "text": "I'll set up a quick call with the ops lead, Maya-oh wait, Maya's out sick this week-so I'll loop in Sam instead, get his sign-off on the downtime, and then raise a Change Request in ServiceNow with the exact time window, the rollback plan, and the monitoring steps."
     },
     {
       "speaker": "Chris Lindqvist",
-      "text": "We could spin up a read‑only replica just for the copy, then switch over with a brief cutover. That way the main table stays live while we back‑fill the replica."
+      "text": "Make sure to tag the cost-impact note we discussed, otherwise finance will ping us again."
+    },
+    {
+      "speaker": "Daniel Okonkwo",
+      "text": "Will do, Chris. I'll also add a note that the migration script has been tested on the staging cluster up to 10 million rows, and we'll do a dry-run at 01:30 UTC just to verify everything before the actual cutover."
+    },
+    {
+      "speaker": "Rachel Goldstein",
+      "text": "Sounds good. Let us know once the window is confirmed so we can adjust any dependent jobs."
+    },
+    {
+      "speaker": "Daniel Okonkwo",
+      "text": "Will update the channel by EOD. Thanks, everyone."
+    },
+    {
+      "speaker": "Daniel Okonkwo",
+      "text": "Before we wrap, just a quick heads-up: we're shifting the on-call rotation forward by one week starting next Monday so Sam will cover the first night of the migration window."
     },
     {
       "speaker": "Yuki Tanaka",
-      "text": "The read‑only replica idea sounds good, but our current CDC pipeline only captures DML, not the massive bulk inserts we need for the initial seed. We'd have to modify the pipeline, which adds overhead we don't have time for this sprint."
-    },
-    {
-      "speaker": "Rachel Goldstein",
-      "text": "What about using pg_repack? It does an online rebuild and can handle large tables without a full lock, though it does need extra disk space."
+      "text": "Got it, so my Friday night shift moves to next Thursday? I need to update my calendar."
     },
     {
       "speaker": "Tom Bradley",
-      "text": "pg_repack was on our radar, but the events table's 12 TB size means we'd need another 12 TB of free space on the same volume, and we’re already at 85 % capacity on the primary storage array."
+      "text": "Yeah, I saw the Slack note-my Saturday slot is now Friday night, which actually works better for me."
+    },
+    {
+      "speaker": "Rachel Goldstein",
+      "text": "Just to confirm, does that mean the handoff meeting moves too, or are we keeping the 9 am sync?"
     },
     {
       "speaker": "Chris Lindqvist",
-      "text": "If we can't fit the extra space, maybe we can temporarily offload older partitions to S3, shrink the active set, run pg_repack on the remainder, then bring the partitions back. It adds steps, but keeps us online."
+      "text": "We keep the 9 am sync, but the primary on-call will be whoever is on the new schedule, so the escalation path changes accordingly."
     },
     {
-      "speaker": "Chris Lindqvist",
-      "text": "Guys, I just got the latest cost report from CloudWatch and we're seeing a spike of about $12,000 this week versus the usual $3,200."
+      "speaker": "Daniel Okonkwo",
+      "text": "Exactly-so the rotation list in the Confluence page gets a one-row bump, and I've already pinged support leads; they'll adjust the alert routing in PagerDuty. If anyone sees a mismatch, raise it now."
     },
     {
       "speaker": "Yuki Tanaka",
-      "text": "Whoa, that's huge. Any idea what's driving that?"
-    },
-    {
-      "speaker": "Chris Lindqvist",
-      "text": "Turns out the backfill job we launched for the new user events schema is running way longer than we modeled. It's been pulling 5 TB of data from S3 into Redshift nonstop."
+      "text": "Will do. I'll double-check the alert policies after the change; I don't want any false positives during the migration dry-run at 01:30 UTC."
     },
     {
       "speaker": "Tom Bradley",
-      "text": "I thought that backfill was supposed to finish by Friday?"
-    },
-    {
-      "speaker": "Chris Lindqvist",
-      "text": "It was, but the job hit a bug where it retries on every transient network error, and those retries double the compute time. We're now at 42 hours of cluster uptime instead of the planned 8."
-    },
-    {
-      "speaker": "Rachel Goldstein",
-      "text": "So the extra cluster hours are what's inflating the bill?"
-    },
-    {
-      "speaker": "Chris Lindqvist",
-      "text": "Exactly. Each extra hour on the dc2.large nodes is $0.25, and we have eight of them, so those runaway hours added roughly $9,600 alone."
+      "text": "Sounds solid. Thanks for the quick update, Daniel."
     },
     {
       "speaker": "Daniel Okonkwo",
-      "text": "Do we have a kill switch? Can we pause it and investigate?"
-    },
-    {
-      "speaker": "Chris Lindqvist",
-      "text": "We can abort it, but we'd lose the progress and have to start over, which would push the timeline for the feature rollout."
+      "text": "Alright, that's everything for today-thanks for the updates, everyone."
     },
     {
       "speaker": "Yuki Tanaka",
-      "text": "Maybe we can checkpoint the work, move the completed partitions to a temp table, and then restart a smaller backfill?"
+      "text": "One quick thing-just confirming my next sprint focus is still the nested aggregation edge cases, right?"
+    },
+    {
+      "speaker": "Daniel Okonkwo",
+      "text": "Yep, Yuki, keep that on track; we’ll sync after the migration when the new planner is live."
+    },
+    {
+      "speaker": "Tom Bradley",
+      "text": "And I’ll keep an eye on the replica lag during the dry-run, will post metrics in the channel."
+    },
+    {
+      "speaker": "Daniel Okonkwo",
+      "text": "Perfect, Tom. And if you hit anything unexpected, shout immediately; we have the ops lead on standby."
+    },
+    {
+      "speaker": "Rachel Goldstein",
+      "text": "Got it. I'll make sure the cohort builder tests run after the window, so we can validate the Fielder fix."
+    },
+    {
+      "speaker": "Daniel Okonkwo",
+      "text": "Thanks, Rachel-just tag the test run with #migration-validation so we can filter later."
     },
     {
       "speaker": "Chris Lindqvist",
-      "text": "That's a possibility, but we'd need to re‑architect the job quickly, and the ops team is already stretched with the migration window prep."
-    },
-    {
-      "speaker": "Tom Bradley",
-      "text": "If we don't stop it now, the cost keeps climbing. We need a decision."
-    },
-    {
-      "speaker": "Chris Lindqvist",
-      "text": "I'm leaning toward pausing it this afternoon, analyzing the retry loop, and then restarting with a throttling flag so we don't hammer the network."
-    },
-    {
-      "speaker": "Rachel Goldstein",
-      "text": "Just a quick update on the cohort builder: the latest profiling run shows the latency dropped from 3.7 seconds to 2.1 seconds per request after we indexed the user_events view."
+      "text": "I'll monitor the cost spike on the backfill and update the ticket if it exceeds the threshold we set."
     },
     {
       "speaker": "Daniel Okonkwo",
-      "text": "That's solid progress, Rachel. Anything else?"
-    },
-    {
-      "speaker": "Rachel Goldstein",
-      "text": "Yeah, the real win came after we applied the Fielder complaint fix—remember the ticket where Fielder said the UI was freezing on cohorts larger than 100k?"
-    },
-    {
-      "speaker": "Rachel Goldstein",
-      "text": "We moved the aggregation from the application layer into the new query engine rewrite, pushed the heavy lifting to the database, and added a materialized summary table that refreshes nightly."
-    },
-    {
-      "speaker": "Tom Bradley",
-      "text": "Did that also cut the memory footprint?"
-    },
-    {
-      "speaker": "Rachel Goldstein",
-      "text": "Exactly. Memory usage on the frontend dropped from roughly 850 MB to under 300 MB, which means the Chrome tab no longer spikes and users can stay on the page without a reload."
-    },
-    {
-      "speaker": "Rachel Goldstein",
-      "text": "We ran a load test with 250k synthetic users; the response time stayed under 2.5 seconds, and the error rate was zero, which directly addresses the Fielder team's pain point about timeouts."
-    },
-    {
-      "speaker": "Daniel Okonkwo",
-      "text": "Great, can we roll that out to staging by tomorrow?"
-    },
-    {
-      "speaker": "Rachel Goldstein",
-      "text": "I’m pushing the changes to the staging branch now; should be live by EOD. I’ll ping the QA lead to start regression testing, and I’ll update the Fielder team so they can verify the fix on their side."
-    },
-    {
-      "speaker": "Daniel Okonkwo",
-      "text": "Alright, so the migration script for the events table—yeah, that's the blocker we need to iron out today."
-    },
-    {
-      "speaker": "Tom Bradley",
-      "text": "Exactly, we can't push it without a maintenance window, and we haven't got one on the calendar yet."
-    },
-    {
-      "speaker": "Yuki Tanaka",
-      "text": "We could maybe do a rolling upgrade, but that would require a bunch of extra coordination with the ops team."
-    },
-    {
-      "speaker": "Daniel Okonkwo",
-      "text": "I hear you, but let me take this on. I’ll reach out to support and the ops lead, see if we can carve out a two‑hour window early next week, maybe Wednesday at 02:00 UTC."
-    },
-    {
-      "speaker": "Chris Lindqvist",
-      "text": "Make sure you get the DBA sign‑off, otherwise they'll push back on the lock timeout settings."
-    },
-    {
-      "speaker": "Daniel Okonkwo",
-      "text": "Will do. I’ll set up a quick Slack thread with the support engineers, pull the change‑request ticket #4529, and ask them to confirm the impact analysis by tomorrow afternoon."
-    },
-    {
-      "speaker": "Tom Bradley",
-      "text": "Cool, once we have that window locked in we can freeze the backfill and resume it after the cutover without blowing up the cost."
-    },
-    {
-      "speaker": "Daniel Okonkwo",
-      "text": "Great, I’ll update the sprint board once I have confirmation, and I'll ping everyone here with the scheduled slot so we can adjust our testing timelines accordingly."
-    },
-    {
-      "speaker": "Daniel Okonkwo",
-      "text": "Before we wrap, just a heads‑up: the on‑call rotation is shifting next sprint, so the primary pager for backend incidents moves from Tom to Yuki on Monday."
-    },
-    {
-      "speaker": "Yuki Tanaka",
-      "text": "Got it, thanks. That means I’ll need the escalation contacts updated in the run‑book, and I should probably shadow a couple of Tom’s alerts this week to get up to speed."
-    },
-    {
-      "speaker": "Tom Bradley",
-      "text": "Yeah, I can pull the recent incident logs and walk you through the typical failure patterns, especially the ones around the events table migration retries."
-    },
-    {
-      "speaker": "Rachel Goldstein",
-      "text": "Also, the rotation change means the frontend alerts will now go to Chris, right? I’ll make sure the alert routing in PagerDuty reflects that by end of day."
-    },
-    {
-      "speaker": "Chris Lindqvist",
-      "text": "Exactly, I’ll take over the infra‑related alerts. I’ll update the on‑call schedule in the ops calendar and add a note about the new escalation path for database lock timeouts."
-    },
-    {
-      "speaker": "Yuki Tanaka",
-      "text": "One thing—if we’re moving the primary on‑call, can we also bump the secondary backup window from 30 minutes to an hour, just in case the handoff takes longer than usual during the migration?"
-    },
-    {
-      "speaker": "Daniel Okonkwo",
-      "text": "Good point, Yuki. I’ll adjust the secondary window to 60 minutes in the schedule, and I’ll send out a revised on‑call roster email after this call so everyone has the latest version."
-    },
-    {
-      "speaker": "Daniel Okonkwo",
-      "text": "Alright, that's everything for today—thanks everyone for the updates, and let's keep an eye on that maintenance window."
-    },
-    {
-      "speaker": "Yuki Tanaka",
-      "text": "Sounds good, I'll watch for the Slack thread and start prepping the run‑book changes."
-    },
-    {
-      "speaker": "Tom Bradley",
-      "text": "I'll freeze the backfill as soon as we get the slot, and I'll sync with you, Yuki, on the retry logic."
-    },
-    {
-      "speaker": "Rachel Goldstein",
-      "text": "I'll double‑check the frontend alert routing and push the PagerDuty update before EOD."
-    },
-    {
-      "speaker": "Chris Lindqvist",
-      "text": "I'll monitor the cost spike after the backfill resumes and let the team know if anything looks off."
-    },
-    {
-      "speaker": "Daniel Okonkwo",
-      "text": "Great. I'll get the DBA sign‑off today, push ticket #4529 through the change‑request pipeline, and send the revised on‑call roster by 3 pm. I'll also add a quick note to the sprint board linking the maintenance window ticket, so everyone can see the status at a glance. If anything changes before then, drop a note in the thread."
-    },
-    {
-      "speaker": "Yuki Tanaka",
-      "text": "Will do. Also, just a heads‑up—I saw a minor glitch in the query planner test on branch feature/agg‑v2, but it's isolated."
-    },
-    {
-      "speaker": "Daniel Okonkwo",
-      "text": "Noted, Yuki. We'll add that to the sprint backlog and prioritize a fix after the migration. Anything else?"
-    },
-    {
-      "speaker": "Tom Bradley",
-      "text": "No, I'm good."
-    },
-    {
-      "speaker": "Daniel Okonkwo",
-      "text": "Okay, then meeting adjourned. See you all tomorrow at 9 am."
+      "text": "Appreciate it, Chris. If anything else comes up before the 01:30 UTC dry-run, drop a note here. Otherwise, see you all tomorrow at 9 am. Have a good one!"
     }
   ]
 }
