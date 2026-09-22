@@ -44,6 +44,7 @@ export function MeetingWorkspace({
   highlights: initialHighlights,
   followUp,
   defaultTemplate,
+  initialMs = 0,
 }: {
   meeting: Meeting;
   participants: Participant[];
@@ -53,8 +54,10 @@ export function MeetingWorkspace({
   highlights: Highlight[];
   followUp: { subject: string; body: string } | null;
   defaultTemplate: SummaryTemplate;
+  /** Where to open playback, so a search result lands on the moment it matched. */
+  initialMs?: number;
 }) {
-  const [currentMs, setCurrentMs] = useState(0);
+  const [currentMs, setCurrentMs] = useState(initialMs);
   const [tab, setTab] = useState<TabId>("summary");
   const [highlights, setHighlights] = useState(initialHighlights);
   const playerRef = useRef<PlayerHandle | null>(null);
@@ -103,7 +106,10 @@ export function MeetingWorkspace({
           highlights={highlights}
           currentMs={currentMs}
           onTime={setCurrentMs}
-          onReady={(handle) => (playerRef.current = handle)}
+          onReady={(handle) => {
+            playerRef.current = handle;
+            if (initialMs > 0) handle.seek(initialMs);
+          }}
           onHighlight={addHighlight}
         />
 

@@ -38,8 +38,15 @@ async function fetchAllSegments(
   return all;
 }
 
-export default async function MeetingPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function MeetingPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ t?: string }>;
+}) {
   const { id } = await params;
+  const { t } = await searchParams;
   const supabase = await createClient();
 
   const { data: meeting } = await supabase.from("meetings").select("*").eq("id", id).maybeSingle();
@@ -104,6 +111,8 @@ export default async function MeetingPage({ params }: { params: Promise<{ id: st
         highlights={(highlights.data ?? []) as Highlight[]}
         followUp={followUp.data ?? null}
         defaultTemplate={defaultTemplateFor(typed.title)}
+        // Search results link straight to a moment.
+        initialMs={Number.isFinite(Number(t)) && Number(t) >= 0 ? Number(t) : 0}
       />
     </div>
   );

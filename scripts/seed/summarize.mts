@@ -70,8 +70,13 @@ for (const meeting of meetings ?? []) {
 
   const have = new Set((already ?? []).map((s) => s.template as SummaryTemplate));
 
+  // Pre-generate the template a meeting opens on, plus two to switch between.
+  // The remaining templates are generated on demand in the app -- pre-building
+  // all five for every meeting would spend the entire daily token budget on
+  // combinations nobody opens.
   const primary = defaultTemplateFor(meeting.title);
-  const wanted: SummaryTemplate[] = [...new Set<SummaryTemplate>([primary, "general", ...TEMPLATE_IDS])];
+  const contrast: SummaryTemplate = primary === "sales_discovery" ? "customer_interview" : "sales_discovery";
+  const wanted: SummaryTemplate[] = [...new Set<SummaryTemplate>([primary, "general", contrast])];
 
   const missingTemplates = force ? wanted : wanted.filter((t) => !have.has(t));
   const needsItems = force || !(await hasRows("action_items", meeting.id));

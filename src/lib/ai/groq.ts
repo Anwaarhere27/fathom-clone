@@ -7,7 +7,12 @@ import Groq from "groq-sdk";
  * transcription. Both are served by Groq; nothing here depends on a closed
  * model.
  */
-export const TEXT_MODEL = "openai/gpt-oss-120b";
+/**
+ * Overridable without a code change, because the 120b and 20b variants have
+ * separate daily token budgets on the free tier -- exhausting one does not
+ * block the other, and Groq's paid tier is currently closed to new signups.
+ */
+export const TEXT_MODEL = process.env.GROQ_TEXT_MODEL ?? "openai/gpt-oss-20b";
 export const TRANSCRIBE_MODEL = "whisper-large-v3-turbo";
 
 let client: Groq | null = null;
@@ -136,7 +141,8 @@ export async function complete(
         messages,
         temperature,
         max_completion_tokens: maxTokens,
-        reasoning_effort: "low",
+        // reasoning_effort is a gpt-oss parameter; other families reject it.
+        ...(TEXT_MODEL.includes("gpt-oss") ? { reasoning_effort: "low" as const } : {}),
         ...(json ? { response_format: { type: "json_object" as const } } : {}),
       });
       return res.choices[0]?.message?.content ?? "";

@@ -64,8 +64,16 @@ const TEMPLATES: Record<SummaryTemplate, { label: string; sections: string[]; gu
 
 export const TEMPLATE_IDS = Object.keys(TEMPLATES) as SummaryTemplate[];
 
-/** ~4 chars per token, and the free tier gives us 8k tokens a minute. */
+/**
+ * ~4 chars per token against an 8,000-tokens-per-minute ceiling that counts
+ * input AND the reserved output together. Every request has to fit under it, so
+ * the transcript is chunked to CHUNK_CHARS and the combined notes are squeezed
+ * back under MAX_NOTES_CHARS before any template pass runs.
+ */
 const CHUNK_CHARS = 9_000;
+const MAX_NOTES_CHARS = 8_000;
+/** Input window for a reduction pass, leaving room for the reply. */
+const WINDOW_CHARS = 7_000;
 
 function formatLines(lines: TranscriptLine[]) {
   return lines.map((l) => `[${Math.round(l.start_ms / 1000)}s] ${l.speaker_name}: ${l.text}`).join("\n");
@@ -119,14 +127,79 @@ export async function buildNotes(lines: TranscriptLine[], onProgress?: (done: nu
           content: `Part ${i + 1} of ${chunks.length} of a meeting transcript.\n\n${formatLines(chunks[i])}`,
         },
       ],
-      { temperature: 0.2, maxTokens: 2500 }
+      // Hard cap per chunk: four chunks at 2,500 tokens each produces notes too
+      // big to send back in a single later request.
+      { temperature: 0.2, maxTokens: 700 }
     );
 
     notes.push(text.trim());
     onProgress?.(i + 1, chunks.length);
   }
 
-  return notes.join("\n\n");
+  return reduceNotes(notes.join("\n\n"));
+}
+
+/**
+ * A 55-minute call condenses to notes that are themselves too big to send
+ * alongside a summary request. One more pass merges the per-chunk notes into a
+ * single account of the meeting that fits in a request.
+ */
+async function reduceNotes(notes: string): Promise<string> {
+  let current = notes;
+
+  // Reduce in windows, repeatedly, until it fits. A single merge request over
+  // long notes is itself too large to send, which is the trap here: the fix for
+  // "too big" cannot be one more big request.
+  for (let round = 0; current.length > MAX_NOTES_CHARS && round < 3; round++) {
+    const windows = splitLines(current, WINDOW_CHARS);
+    const merged: string[] = [];
+
+    for (const window of windows) {
+      const reduced = await complete(
+        [
+          {
+            role: "system",
+            content:
+              "You tighten meeting notes without losing content.\n" +
+              "- Keep every number, name, date, commitment and [Ns] timestamp.\n" +
+              "- Merge points that repeat; keep the earliest timestamp.\n" +
+              "- Keep disagreements and unresolved threads. Drop pleasantries and scheduling chatter.\n" +
+              "- Bullets only, one line each. No preamble, no headings.",
+          },
+          { role: "user", content: window },
+        ],
+        { temperature: 0.2, maxTokens: 700 }
+      );
+
+      const trimmed = reduced.trim();
+      // An implausibly short reply means the model discarded the content;
+      // keeping the original window is the safer failure.
+      merged.push(trimmed.length < 120 ? window : trimmed);
+    }
+
+    const next = merged.join("\n");
+    // No progress means another round will not help either.
+    if (next.length >= current.length) return next.slice(0, MAX_NOTES_CHARS);
+    current = next;
+  }
+
+  return current.length <= MAX_NOTES_CHARS ? current : current.slice(0, MAX_NOTES_CHARS);
+}
+
+/** Splits on line boundaries so a bullet is never cut in half. */
+function splitLines(text: string, budget: number) {
+  const windows: string[] = [];
+  let current = "";
+
+  for (const line of text.split("\n")) {
+    if (current && current.length + line.length + 1 > budget) {
+      windows.push(current);
+      current = "";
+    }
+    current += (current ? "\n" : "") + line;
+  }
+  if (current) windows.push(current);
+  return windows;
 }
 
 /**
@@ -142,6 +215,7 @@ interface SummaryResponse {
   bullets: { section: string; text: string; at?: number | string | null }[];
 }
 
+const MIN_BULLETS_PER_SECTION = 3;
 const MAX_BULLETS_PER_SECTION = 6;
 
 export async function summarizeToTemplate(
@@ -160,8 +234,8 @@ export async function summarizeToTemplate(
           '{"one_liner": "...", "bullets": [{"section": "<one of the given headings>", "text": "...", "at": <seconds or null>}]}\n\n' +
           '- Every bullet names its "section", copied EXACTLY from the headings given. Do not invent headings.\n' +
           "- Order the bullets so sections appear in the order given.\n" +
-          `- At most ${MAX_BULLETS_PER_SECTION} bullets per section. Pick the ones that matter; a wall of bullets is not a summary.\n` +
-          "- If a section has nothing in it, give it exactly one bullet saying so plainly.\n" +
+          `- ${MIN_BULLETS_PER_SECTION} to ${MAX_BULLETS_PER_SECTION} bullets per section. Fewer than ${MIN_BULLETS_PER_SECTION} is too thin to be useful; more than ${MAX_BULLETS_PER_SECTION} is a transcript, not a summary.\n` +
+          "- Only if the call genuinely covered nothing for a section, give it one bullet saying so plainly.\n" +
           '- "at" is the timestamp in SECONDS from the [Ns] markers, for the moment the point was made. null when no marker applies.\n' +
           "- Bullets are specific and short. Keep the actual numbers and names.\n" +
           "- Never invent anything that is not in the notes.\n" +
@@ -182,7 +256,7 @@ NOTES FROM THE CALL:
 ${notes}`,
       },
     ],
-    { json: true, temperature: 0.3, maxTokens: 4000 }
+    { json: true, temperature: 0.3, maxTokens: 1800 }
   );
 
   const parsed = parseJson<SummaryResponse>(raw);
@@ -252,7 +326,7 @@ export async function extractActionItems(
         content: `PARTICIPANTS: ${participants.join(", ")}\n\nNOTES:\n${notes}`,
       },
     ],
-    { json: true, temperature: 0.2, maxTokens: 2500 }
+    { json: true, temperature: 0.2, maxTokens: 1200 }
   );
 
   const parsed = parseJson<{
@@ -298,7 +372,7 @@ export async function draftFollowUpEmail(
         content: `MEETING: ${meta.title}\nFROM: ${meta.sender}\nTO: ${meta.participants.join(", ")}\n\nNOTES:\n${notes}`,
       },
     ],
-    { json: true, temperature: 0.4, maxTokens: 1800 }
+    { json: true, temperature: 0.4, maxTokens: 1000 }
   );
 
   const parsed = parseJson<{ subject?: string; body?: string }>(raw);

@@ -118,9 +118,16 @@ export function Avatar({
   );
 }
 
-export function Input({ className, ...props }: React.InputHTMLAttributes<HTMLInputElement>) {
+export function Input({
+  className,
+  ref,
+  ...props
+}: React.InputHTMLAttributes<HTMLInputElement> & {
+  ref?: React.Ref<HTMLInputElement>;
+}) {
   return (
     <input
+      ref={ref}
       className={cn(
         "h-10 w-full rounded-[10px] border border-line bg-surface px-3 text-sm text-ink",
         "placeholder:text-ink-faint",
