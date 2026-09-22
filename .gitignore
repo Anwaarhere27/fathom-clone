@@ -49,3 +49,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Local TTS binaries and voice models, fetched by npm run seed:setup-tts
+tools/
+
+# Generated audio: large, rebuildable, uploaded to Supabase Storage
+seed/audio/
+seed/generate.log

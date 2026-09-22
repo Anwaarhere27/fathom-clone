@@ -16,21 +16,26 @@ export const OWNER = {
   role: "Head of Growth",
 };
 
-// Voices are assigned per meeting from this pool so a given person keeps the
-// same voice across every recording they appear in.
-export const VOICES = {
-  "Alex Rivera": "en-US-AndrewNeural",
-  "Sarah Chen": "en-US-AriaNeural",
-  "Marcus Webb": "en-US-GuyNeural",
-  "Priya Raman": "en-IN-NeerjaNeural",
-  "Daniel Okonkwo": "en-NG-AbeoNeural",
-  "Elena Vasquez": "en-US-JennyNeural",
-  "Tom Bradley": "en-GB-RyanNeural",
-  "Yuki Tanaka": "en-US-MichelleNeural",
-  "Rachel Goldstein": "en-US-EmmaNeural",
-  "James Mbeki": "en-ZA-LukeNeural",
-  "Nadia Hassan": "en-US-AvaNeural",
-  "Chris Lindqvist": "en-US-BrianNeural",
+/**
+ * Which pool of synthetic voices each character is cast from, so a listener is
+ * not thrown by a voice that contradicts the name on the transcript line.
+ *
+ * Every meeting's roster fits within the four masculine and four feminine
+ * voices Piper gives us, so nobody in a call ever shares a voice.
+ */
+export const VOICE_POOL = {
+  "Alex Rivera": "m",
+  "Marcus Webb": "m",
+  "Daniel Okonkwo": "m",
+  "Tom Bradley": "m",
+  "James Mbeki": "m",
+  "Chris Lindqvist": "m",
+  "Sarah Chen": "f",
+  "Priya Raman": "f",
+  "Elena Vasquez": "f",
+  "Yuki Tanaka": "f",
+  "Rachel Goldstein": "f",
+  "Nadia Hassan": "f",
 };
 
 export const BLUEPRINTS = [

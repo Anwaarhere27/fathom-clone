@@ -13,40 +13,35 @@
  */
 import { Mp3Encoder } from "@breezystack/lamejs";
 
-export const ORPHEUS_VOICES = ["tara", "leah", "jess", "leo", "dan", "mia", "zac", "zoe"];
+/**
+ * Two pools, so a character is never voiced against the name on their
+ * transcript line. Within a pool the order mixes accents (US, GB) to keep
+ * two same-pool speakers in one meeting distinguishable.
+ */
+export const PIPER_VOICES = {
+  f: ["en_US-amy-medium", "en_GB-jenny_dioco-medium", "en_US-lessac-medium", "en_US-kristin-medium"],
+  m: ["en_US-ryan-high", "en_GB-alan-medium", "en_US-joe-medium", "en_US-kusal-medium"],
+};
 
 /**
- * Assign a voice per speaker for one meeting. Only eight voices exist, so the
- * constraint that matters is that no two people in the SAME meeting share one.
+ * Assign a distinct voice per speaker.
+ *
+ * Every meeting's roster fits inside the four-plus-four pools, so nobody
+ * shares. Names arrive ordered by how much each person talks, which only
+ * matters if a meeting ever outgrows the pool -- then the collision lands on
+ * the two people you hear least.
  */
-export function assignVoices(speakerNames) {
+export function assignVoices(speakerNamesByProminence, pools) {
+  const next = { f: 0, m: 0 };
   const assignment = {};
-  speakerNames.forEach((name, i) => {
-    assignment[name] = ORPHEUS_VOICES[i % ORPHEUS_VOICES.length];
-  });
-  return assignment;
-}
 
-export async function synthesize(groqKey, text, voice) {
-  const res = await fetch("https://api.groq.com/openai/v1/audio/speech", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${groqKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "canopylabs/orpheus-v1-english",
-      voice,
-      input: text,
-      response_format: "wav",
-    }),
-  });
-
-  if (!res.ok) {
-    const body = await res.text();
-    const err = new Error(`TTS ${res.status}: ${body.slice(0, 300)}`);
-    err.status = res.status;
-    throw err;
+  for (const name of speakerNamesByProminence) {
+    const pool = pools[name] === "m" ? "m" : "f";
+    const options = PIPER_VOICES[pool];
+    assignment[name] = options[next[pool]++ % options.length];
   }
 
-  return Buffer.from(await res.arrayBuffer());
+  return assignment;
 }
 
 /** Minimal RIFF/WAVE parser. Returns Int16 PCM plus the format we need. */

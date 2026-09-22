@@ -11,7 +11,10 @@
     "migrate": "node scripts/migrate.mjs",
     "db:status": "node scripts/db-status.mjs",
     "seed:generate": "node scripts/seed/generate.mjs",
-    "seed:audio": "node scripts/seed/synthesize.mjs"
+    "seed:audio": "node scripts/seed/synthesize.mjs",
+    "seed:setup-tts": "node scripts/seed/setup-piper.mjs",
+    "seed:load": "node scripts/seed/load.mjs",
+    "seed:summarize": "tsx scripts/seed/summarize.ts"
   },
   "dependencies": {
     "@breezystack/lamejs": "^1.2.7",
@@ -35,6 +38,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.5",
     "tailwindcss": "^4",
+    "tsx": "^4.23.15",
     "typescript": "^5"
   }
 }
