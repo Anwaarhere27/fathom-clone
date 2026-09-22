@@ -1,0 +1,486 @@
+{
+  "slug": "fielder-customer-interview",
+  "title": "Customer interview — Priya Raman, Fielder",
+  "turns": [
+    {
+      "speaker": "Alex Rivera",
+      "text": "Hey Priya, thanks for hopping on-just wanted to start by saying this is totally a research chat, not a sales pitch, so feel free to be as candid as you like."
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "Sure, Alex, I appreciate the heads-up. I’m happy to share what’s working and what’s not."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "Great. Also, is it okay if I hit record? It’ll just be for internal notes, and I’ll delete the file after we pull the insights together."
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "Yeah, that’s fine. No problem."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "Awesome, thanks. So, the reason we’re reaching out right now is because we’re looking at a potential pricing restructure next quarter, and we want to understand how folks on the growth tier are actually using Cadence, where they get value, and where they hit friction points. Your experience after eleven months is exactly the kind of data we need to make the right decisions."
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "Got it. I can definitely give you the low-down on our day-to-day workflows, the things that saved us time, and the bits that still feel clunky. Just a heads-up, we’ve got a couple of big complaints around the cohort builder and the alerting noise, but overall we’ve been pretty happy."
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "We basically live in Cadence. Every morning I open the dashboard, skim the health widgets, and then pull the latest cohort view for the last 30 days to see how our activation funnel is shaping up."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "Okay, so the dashboard is your go-to starting point?"
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "Yeah, exactly. The real-time metrics panel shows DAU, churn risk score, and the top three drop-off points. I’ll click into the churn risk segment, filter by product tier, and export that table to CSV - that’s a habit we’ve built because the finance folks love to slice it in Excel."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "Got it, you mentioned exporting a lot."
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "Right, so after the export I usually drop it into a pivot table, add a column for \"support tickets last week\", and then we run a quick VLOOKUP against our ticketing system dump. That lets us see if spikes in churn risk line up with support volume. It’s a bit manual but it’s how we surface the stories for the leadership deck."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "Makes sense. What about the cohort builder?"
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "We use the cohort builder for two main things: first, to segment users by acquisition channel and see 30-day retention; second, to pull a \"high-value\" cohort - users who have spent over $500 in the last quarter - and then push that list into our email automation. The UI is fine for groups under a million, but once we hit the 2-million-user mark the page just crawls, so I’ve started breaking the cohort into regional chunks manually."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "Interesting, so you’re doing workarounds."
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "Exactly. I’ll run three separate cohort builds - North America, EMEA, APAC - each under the 2-million threshold, then stitch the CSVs together in a master spreadsheet. It adds an extra 10-15 minutes, but it’s tolerable compared to the two-week grind we used to have before Cadence."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "And the alerts?"
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "We’ve set up three alert rules: sudden drop in DAU, spike in churn risk, and a threshold breach for \"failed payments > 5%\". The alerts fire in Slack, but the churn-risk rule is so noisy - we get 12-15 notifications a day, most of them false alarms. So the team has started muting it and only looks at the DAU drop, which kinda defeats the purpose of proactive monitoring."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "Got it, that’s helpful context."
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "Overall, though, Cadence saves us a ton of time. The daily health snapshot alone cuts our manual reporting by about 40%, and the ability to drill down into a cohort and instantly see revenue lift is something we didn’t have before."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "Can you walk me through a specific time when Cadence really proved its value, maybe a story that sticks out?"
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "Sure, the biggest aha moment was last quarter when we were chasing a churn spike in our mid-tier users - it used to take us two weeks to piece together the root cause, but with Cadence we cracked it in an afternoon."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "Two weeks to an afternoon? That’s a huge jump. What was the process like?"
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "We started by pulling the churn-risk cohort for the last 30 days - that gave us about 1.8 million rows. I filtered down to the segment that had a risk score above 0.8, then exported that slice to CSV. While the export was running, I opened the alert log for the same period and saw a spike in ‘failed payments > 5%’ that line-up with a new payment gateway rollout on March 12."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "So the alert gave you a clue, but how did you verify it?"
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "I took the CSV, dropped it into a temporary table in BigQuery, and joined it with our internal payments table on user_id. The query showed that 73% of the high-risk users had at least one failed payment attempt in the past 48 hours, and many of those failures were on the new gateway. Then I ran a quick regression in the Cadence UI - the cohort builder let me compare conversion rates before and after the gateway switch, and the drop was statistically significant, p < 0.01."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "That sounds fast. How long did the whole investigation take?"
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "From opening the dashboard to having a slide ready for the exec team, about three hours. Previously we’d pull raw logs, write a Python script, wait for the data warehouse to catch up, and then manually reconcile everything - often spilling over the weekend. The fact that Cadence let us slice, export, and even run a quick join without leaving the platform shaved off roughly 80% of the effort."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "And the outcome?"
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "We presented the findings, rolled back the gateway for a subset of users, and within a week the churn risk score dropped back to baseline. The execs were impressed - they actually asked if we could replicate that rapid diagnostic for other product lines."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "Got it, thanks for the story. I wanted to dig a bit into the cohort builder itself - you mentioned it slows down when you get past a couple million users?"
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "Yeah, that’s the thing. The moment we try to pull a cohort that’s anything over roughly 2 million rows, the UI just… freezes. I’ll click ‘run’, the spinner spins for like 30 seconds, then the table never renders. Sometimes it throws a generic ‘timeout’ error, other times it just shows a blank screen."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "That sounds frustrating. How often does that happen in your day-to-day work?"
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "Almost daily for us. Our active user base is about 12 million, and we regularly need to segment the top 5% of churn risk - that’s 600 k, no problem. But when we want to look at the whole segment of users who signed up in the last quarter, that’s 3.2 million, and the builder just becomes unusable. We end up splitting the query into two separate cohorts of 1.6 million each, then stitching them together outside of Cadence."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "So you’ve built a workaround. Could you walk me through the steps you take?"
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "Sure. First I apply a date filter to get the quarter, then I add a secondary filter on user_id modulo 2 - that gives me roughly half the users. I run that cohort, export to CSV, and repeat with modulo 2 equals 1 for the other half. After both exports finish, we merge the two CSVs in our internal data lake, load them into a temporary BigQuery table, and then run the analysis there. It adds an extra 15-20 minutes on top of what should be a 2-minute job in Cadence."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "Got it. So the workaround is adding extra manual steps and extra latency. Have you tried any other tactics?"
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "We also tried reducing the number of dimensions we pull - like dropping a few custom attributes - and that helps a bit, but the core issue is the sheer row count. The backend seems to be hitting a hard limit on the result set size, which isn’t documented anywhere. It’s not just the UI; even the API returns a truncated payload after 2 million rows."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "That’s really useful context, thanks. I’ll make sure the product team knows this is a pain point for larger customers like Fielder."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "Let’s shift to alerts - you mentioned the alerting system is firing way too much?"
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "Yeah, it’s basically become background noise. We get like 30-40 alerts a day on the churn risk metric, most of which are just the same users pinging back and forth."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "Can you give an example of a typical false positive?"
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "Sure. Yesterday we got an alert that the churn risk score spiked for a segment of 5,000 users. I dug in and saw the underlying metric - it was just a glitch in our payment provider that temporarily marked a batch of transactions as failed, but those were later corrected and the risk score normalized within an hour. The alert stayed on for two hours before we manually cleared it."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "So the signal-to-noise ratio is low, and your team is manually dismissing them?"
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "Exactly. We’ve built a tiny internal triage board where someone just clicks ‘ignore’ on most alerts. It’s a habit now - we check the dashboard twice a day, skim the list, and discard anything that isn’t a red-flag we’ve seen before. It defeats the whole purpose of real-time monitoring."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "How does that impact your workflow overall?"
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "It’s a hidden cost. People spend about 10-15 minutes each morning just filtering out noise, which adds up to roughly an hour per week per analyst. More importantly, we’ve started to miss genuine issues because we’re conditioned to assume most alerts are noise - we had a real spike in payment failures last week that we only caught because an engineer was looking at the logs, not because the alert triggered us."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "Got it. Any thoughts on what would make the alerts more useful?"
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "We need better thresholds and maybe a way to batch similar alerts together, like a digest. Also, if the system could learn from our dismissals - treat those patterns as low priority - that would cut down the volume dramatically."
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "Actually, one thing that kind of flies under the radar is how many of us still rely on CSV exports for the final reporting layer."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "Oh? How often are you pulling those exports?"
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "Four of us on the data team-myself, Jenna, Marco, and Luis-download the raw cohort data every Friday, just so we can mash it together with some offline calculations in Excel before we send the deck to product."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "So it’s a weekly habit, not just an occasional thing?"
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "Exactly. We’ll run the cohort builder for the latest month, hit ‘export’, and then spend about 10-15 minutes each cleaning up column names, pivoting a couple of fields, and adding a few manual annotations that our stakeholders still expect in a spreadsheet format."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "Do you ever run into size limits when you export?"
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "Yeah, the CSV caps at about 2 million rows, which is why we split the cohort into two halves as we talked about earlier. After that, we zip the files, drop them into our shared drive, and the analysts pull them into a master workbook that has some VBA macros for trend lines and a couple of pivot charts that the execs love."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "Sounds like a lot of manual glue. Does the team find the spreadsheet step valuable?"
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "Honestly, the execs still want to see a static sheet they can print or copy-paste into PowerPoint. The visualizations in Cadence are great, but the narrative they build in the spreadsheet-like adding footnotes about a marketing campaign or a note on a data anomaly-makes the story feel complete for them."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "Got it, that helps me understand the CSV habit better."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "Right, so when you say you export to CSV and then massage it in Excel, is the main goal to get that data into people who don’t use Cadence directly?"
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "Exactly. Our product managers, the marketing folks, even some of the finance analysts - they all want a flat file they can open in their own tools without logging into Cadence."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "Can you walk me through a typical hand-off? Like, after you finish the Excel workbook, who gets it and how?"
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "Sure. After we finish the Friday cleanup, I drop the final workbook into our shared Google Drive folder called \"Weekly Cadence Reports.\" Then I send a quick Slack message to the product lead, the VP of Marketing, and the finance lead, with a link and a one-sentence summary."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "And they just open the.xlsx, look at the tabs, maybe copy-paste a chart into a deck?"
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "Yes, that’s the usual flow. They’ll copy the pivot chart into PowerPoint, add a few bullet points, and that’s what goes into the quarterly business review. They rarely click back into Cadence to explore the raw data themselves."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "Do they ever ask for raw numbers or deeper drill-downs beyond what you’ve already prepared?"
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "Occasionally they’ll ask for a deeper slice - like ‘show me the churn by channel for the last 30 days’ - and then I have to rerun the cohort builder, export again, and update the workbook. It adds another hour or so to the cycle."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "Got it. So the CSV export is really a bridge for non-technical stakeholders who need a static, printable view rather than an interactive dashboard."
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "Exactly. They’re comfortable with Excel, they trust the numbers when they see the formulas, and they can annotate directly in the sheet for their presentations."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "If we could give them a read-only view inside Cadence that mimics the spreadsheet layout, do you think that would reduce the export workload?"
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "Potentially, yes - but it would have to support annotations and easy printing. Right now, the Excel layer is their ‘final polish’ step."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "If we could make that read-only view work, who else do you think would actually start using Cadence directly instead of waiting for the spreadsheet?"
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "Honestly, our data science folks would jump in right away - they love the raw event logs and the ability to slice by custom dimensions, but they’ve been hesitant because they can’t easily share their work with product."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "So they’d be more likely to use the platform if the outputs were shareable?"
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "Exactly. Right now they spend half their time building a model in Python, pulling data via the API, then exporting a CSV just to get approval from product - it’s a bottleneck. If Cadence let them lock a dashboard as a ‘view-only report’ they could skip the back-and-forth."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "What about the sales ops team? I know they’re heavy Excel users, but do they ever need real-time data?"
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "They do. The quarterly quota trackers are still in Excel, but the sales reps keep asking for live churn-by-region numbers. If they could embed a Cadence widget into their internal Confluence page, they’d probably stop opening a new tab every time they need an update."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "And the finance analysts you mentioned earlier - would they adopt Cadence more if the annotation feature were built in?"
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "They would. Right now they import the CSV, add their variance analysis, and then push a PDF to the CFO. If they could add comments directly on a read-only Cadence view and export that as a PDF, it would cut their prep time by maybe 30%."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "Any other groups? Maybe customer support?"
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "Support actually asks for cohort breakdowns when they’re dealing with a spike in tickets. They’ve started using the alert emails, but they’d love a simple shareable report that shows the top 5 cohorts causing issues without having to ask us for a fresh export every week."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "Got it - so data science, sales ops, finance, and support would all be more engaged if sharing were smoother."
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "Exactly. And if we solve that, I think the whole adoption curve across the org would steepen dramatically."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "If you were recommending Cadence to a fellow data leader, what would be the key things you'd highlight?"
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "Honestly, I'd start with the churn-investigation workflow - the fact that we went from a two-week manual deep-dive to an afternoon analysis was a game-changer. That speed alone makes the platform worth the seat."
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "But I wouldn't sugarcoat it; I'd warn them about the cohort builder hitting a wall around two million users. If they’re a sub-$100M SaaS with a massive user base, they need to plan a workaround or be ready to segment their cohorts more aggressively."
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "Also, the alerting system is powerful, but you have to tune it early. We initially got flooded with false positives - the team started ignoring the alerts, which defeats the purpose. I always tell peers to set up a tight rule set and use the suppression feature from day one."
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "On the plus side, the export-to-CSV habit is a double-edged sword. It shows the platform is flexible enough for non-technical stakeholders, but it also signals a gap in native sharing. If your organization values that spreadsheet-first mindset, Cadence will fit, but you should push for the read-only view and annotation features we just discussed."
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "Lastly, I’d mention the support and finance teams - they love the raw data but hate the back-and-forth. If you can get buy-in from those groups by showing them a quick win, like a live quota tracker or a PDF-exportable variance report, the whole org starts to see value faster."
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "So, in a nutshell: highlight the rapid churn analysis, be upfront about the cohort size limitation, stress early alert tuning, and champion the need for better shareable outputs. If they can live with those trade-offs, Cadence is a solid investment."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "Priya, I know we’ve covered a lot, but I want to ask directly-what would be the deal-breaker that would make you consider pulling Fielder off Cadence?"
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "Honestly, the first thing that would push us over the edge is if the cohort builder never gets past that two-million-user ceiling and they don’t announce a roadmap fix in the next quarter; we’d have to start building our own ETL pipelines, which defeats the whole point of using a SaaS analytics layer."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "So it’s really the scalability of that feature that’s the make-or-break?"
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "Exactly. We’ve already seen a couple of near-misses where we had to split a cohort into three separate slices just to get any response time, and that adds manual overhead we can’t afford as we grow toward the $150 M ARR mark."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "Got it. Anything else that would make you walk away?"
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "Yes, the alerting noise. If the false-positive rate stays at, say, 40% of all alerts and Cadence doesn’t give us a way to batch-suppress or auto-escalate low-severity signals, my team will start ignoring the whole system. That erodes trust and we’d look for a tool that can guarantee a tighter precision-recall balance out of the box."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "Understood. And on the CSV side-if the export workflow never gets a native sharing alternative, would that be a churn factor?"
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "It would be a strong secondary factor. Right now four of my analysts spend roughly 6-8 hours a week just cleaning up CSV dumps for finance and support. If we can’t get a read-only, comment-enabled view that eliminates that export loop, the cost savings argument collapses and senior leadership will start questioning the ROI."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "So to summarize: a non-scalable cohort builder, noisy alerts, and no native shareable view would collectively make you look elsewhere?"
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "Yes, that’s the crux. Any one of those alone is painful, but together they become a deal-breaker. If Cadence can address even two of those three, we’d stay; otherwise we’ll start evaluating alternatives like Amplitude or Mixpanel that claim better scalability and alert hygiene."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "Okay, let me throw a scenario at you: we're considering moving to a per-seat pricing model next quarter, maybe $120 per active analyst per month, instead of the flat-rate tier you’re on now."
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "Whoa, hold on - that’s a big shift. We’ve built our budget around the current $15k-per-month flat fee, which covers all ten of us, plus the occasional contractor."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "Right, I get that. The idea is to align cost more directly with usage, especially as teams grow. How does that sit with you?"
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "Honestly, it feels like a penalty for scaling. Our headcount is going to hit 25 analysts by Q2 next year, and suddenly we’d be looking at $3,000 extra each month just for seats, on top of everything else. That’s a 20% bump on top of the $15k we’re already paying."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "What if we offered a volume discount after, say, 20 seats? Would that mitigate the concern?"
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "Even with a discount, the principle bothers me. We’re paying for the platform’s value, not the number of eyes on the dashboard. Plus, a lot of our seats are part-time - some analysts only log in a few days a week, but under a per-seat model they’d still be counted."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "Got it. So the per-seat model could end up over-charging for intermittent users?"
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "Exactly. And it also creates internal friction. Our finance team will start asking why we’re paying $120 per seat when the same data could be pulled via the API for free and visualized elsewhere. It undermines the whole value proposition of Cadence as a unified, cost-effective analytics layer."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "Would a hybrid approach work? Like a base fee plus a smaller per-seat surcharge?"
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "Maybe, but it would need to be transparent and tied to actual usage metrics - like active-user minutes. Otherwise, it just feels like a hidden fee. At this point, if the pricing change is non-negotiable, we’ll have to re-evaluate and possibly start a proof-of-concept with Amplitude, which already has a usage-based model that aligns better with our growth plans."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "Alright Priya, I really appreciate you walking through all of that-both the good stuff and the pain points. I’ll take these notes back to the product and pricing teams and make sure they hear exactly how the cohort builder, alerts, and the CSV sharing gap are impacting you."
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "Thanks, Alex. It helps that you’re actually listening and not just pitching. I’ll be honest, if you can get even one of those three issues fixed, it would buy us a lot of goodwill."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "Got it. We’ll prioritize a quick win on the alert noise-maybe a beta toggle for stricter thresholds-and I’ll push the read-only view idea up the roadmap. I can’t promise a fix on the cohort builder this quarter, but I’ll get you a timeline."
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "That sounds fair. Just make sure the timeline is realistic; we’ve been burned before when things get delayed."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "Absolutely, I’ll follow up with a concrete plan by the end of next week. In the meantime, would you be open to a short demo of the upcoming alert-filter UI when it’s ready? We could get your feedback early."
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "Sure, schedule it whenever works for my team. Maybe Thursday morning, 10 am PST?"
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "Perfect, I’ll send a calendar invite. One last thing-can we set a check-in for about a month from today? That’ll give us time to roll out the tweaks and you’ll have a chance to see if they’re making a dent."
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "Yes, let’s do that. A mid-October call works for me, same time if possible."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "Great, I’ll block October 15th at 2 pm EST. I’ll also attach a brief summary of today’s discussion so you have it on file, and we’ll include the next steps we outlined."
+    },
+    {
+      "speaker": "Priya Raman",
+      "text": "Appreciate it, Alex. Looking forward to seeing some progress."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "Me too. Thanks again for your candor, Priya. Talk soon!"
+    }
+  ]
+}

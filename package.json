@@ -9,7 +9,8 @@
     "lint": "eslint",
     "redact": "node scripts/redact-agent-logs.mjs",
     "migrate": "node scripts/migrate.mjs",
-    "db:status": "node scripts/db-status.mjs"
+    "db:status": "node scripts/db-status.mjs",
+    "seed:generate": "node scripts/seed/generate.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

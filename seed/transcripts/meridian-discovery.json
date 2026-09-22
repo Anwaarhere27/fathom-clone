@@ -1,0 +1,586 @@
+{
+  "slug": "meridian-discovery",
+  "title": "Cadence × Meridian Logistics — Discovery",
+  "turns": [
+    {
+      "speaker": "Alex Rivera",
+      "text": "Hey everyone, thanks for hopping on-how's the morning treating you?"
+    },
+    {
+      "speaker": "Marcus Webb",
+      "text": "Morning, Alex. It's been a busy week, but I'm good."
+    },
+    {
+      "speaker": "Elena Vasquez",
+      "text": "Same here, Alex. Just wrapped a sprint, so I'm ready."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "Great to hear. Before we dive in, just a quick housekeeping note: I'd like to record this session for internal reference and to make sure we capture all the details accurately. Is that okay with everyone?"
+    },
+    {
+      "speaker": "Sarah Chen",
+      "text": "Sure, no problem."
+    },
+    {
+      "speaker": "Marcus Webb",
+      "text": "Fine by me."
+    },
+    {
+      "speaker": "Elena Vasquez",
+      "text": "Yeah, that's fine."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "Perfect, thanks. So, just to lay out what we hope to cover today: we want to understand the current state of your freight-tracking data pipeline, especially the pain points around latency and reliability. Sarah will walk through some of the technical specifics of how Cadence could fit in, and I'll be asking a few high-level questions about timelines and priorities. Does that agenda sound good to you?"
+    },
+    {
+      "speaker": "Marcus Webb",
+      "text": "Sounds reasonable, just make sure we get to the part about what actually makes this different from our Redshift/Looker setup."
+    },
+    {
+      "speaker": "Elena Vasquez",
+      "text": "And I'd like to make sure we come away with a clear sense of next steps, since the product team is under a lot of pressure right now."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "Absolutely. We'll keep it focused and make sure we leave time for any objections or deeper technical dives. If at any point you want to pause or steer the conversation, just let me know. Okay, let's get started."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "Elena, could you walk us through what’s been driving you to look for a solution like Cadence?"
+    },
+    {
+      "speaker": "Elena Vasquez",
+      "text": "Sure, Alex. The core issue is that our product team keeps hitting a wall when they try to answer even the most basic retention questions. Right now, if we need to know, say, the churn rate for a specific carrier segment over the last month, we can’t just pull a report."
+    },
+    {
+      "speaker": "Elena Vasquez",
+      "text": "Instead, we have to file a ticket with our data engineering squad, which then writes a one-off SQL query against our Redshift warehouse, runs it, and finally someone in BI builds a Looker dashboard tile. That whole loop takes anywhere from two days to a week, depending on the queue."
+    },
+    {
+      "speaker": "Elena Vasquez",
+      "text": "And it gets worse when the question is about event-level granularity-like, did drivers who received a real-time ETA update actually see a reduction in late deliveries? We have to dig through raw event tables, join them with shipment status tables, and then hand-craft a view. It’s not repeatable, and the results are often disputed because the naming conventions are all over the place."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "Got it, so it’s not just latency but also trust in the data?"
+    },
+    {
+      "speaker": "Elena Vasquez",
+      "text": "Exactly. The product managers end up saying, ‘We can’t make a decision until we get the data,’ and then they’re stuck waiting for engineering. In the last quarter we had a retention experiment for a new pricing tier, and the team spent five weeks trying to confirm whether the experiment was even tracking correctly. By the time we got a clean dataset, the window had closed."
+    },
+    {
+      "speaker": "Elena Vasquez",
+      "text": "We’ve tried to mitigate this by building a small internal data catalog, but it’s still a manual process. Every time a new event type is added-there are roughly 400 now-we have to manually document it, update the Looker model, and then notify the product folks. It’s a constant bottleneck."
+    },
+    {
+      "speaker": "Elena Vasquez",
+      "text": "So, when I heard about Cadence’s event-centric platform that promises near-real-time ingestion and a self-service catalog, I thought it could finally give us the ability to answer those retention questions on the fly, without needing to open a ticket every time."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "That makes sense. Just to confirm, the biggest pain point is the reliance on tickets to data engineering for any retention-related insight, correct?"
+    },
+    {
+      "speaker": "Elena Vasquez",
+      "text": "Yes, that’s the crux of it. If we could empower the product team to pull those metrics themselves, we’d shave weeks off our decision cycle and, more importantly, start making data-driven moves before the quarter ends."
+    },
+    {
+      "speaker": "Marcus Webb",
+      "text": "Look, we already have Redshift humming and Looker dashboards that our analysts swear by, so I need to hear what’s actually different about Cadence-what’s the tangible lift here?"
+    },
+    {
+      "speaker": "Sarah Chen",
+      "text": "Sure, Marcus, the core difference is that Cadence sits on top of your raw event stream and builds a semantic layer in near-real-time, so you don’t have to wait for batch loads into Redshift that can be days old."
+    },
+    {
+      "speaker": "Marcus Webb",
+      "text": "But we’re already pushing events into Redshift every few minutes via our own ETL. Isn’t that essentially the same?"
+    },
+    {
+      "speaker": "Sarah Chen",
+      "text": "The timing is one part, but the architecture is another: our ingest engine writes events to an immutable log, applies a lightweight schema-on-write, and then materializes curated views on-demand. That means you get sub-minute latency for ad-hoc queries, whereas your current pipeline still has that three-week window you mentioned for new events to surface in Looker."
+    },
+    {
+      "speaker": "Marcus Webb",
+      "text": "Three weeks? Yeah, we know that, but we also have data residency controls, SOC 2 compliance baked into Redshift, and our Looker models are vetted by security already."
+    },
+    {
+      "speaker": "Sarah Chen",
+      "text": "We support SOC 2 and can run inside your VPC, but the key is that Cadence gives you a self-service catalog with auto-generated documentation and lineage, so product managers can discover events without a ticket. It also enforces consistent naming at ingest, which solves the taxonomy chaos you described."
+    },
+    {
+      "speaker": "Marcus Webb",
+      "text": "Auto-generated documentation sounds nice, but we’ve tried internal tools before and they broke after a couple of schema changes. How is this any more stable?"
+    },
+    {
+      "speaker": "Sarah Chen",
+      "text": "Our platform version-controls the schema definitions themselves; each change creates a new revision that’s backward compatible. The catalog updates automatically, and Looker can point to the latest revision without manual model edits. In practice, teams have cut the time to onboard a new event from weeks to under an hour."
+    },
+    {
+      "speaker": "Marcus Webb",
+      "text": "Okay, but we’ve got 140 engineers already maintaining the current pipeline. Adding another layer feels like more overhead, not less."
+    },
+    {
+      "speaker": "Sarah Chen",
+      "text": "Because Cadence offloads a lot of that maintenance. The ingest service is fully managed, you don’t have to staff a separate ETL team for schema drift, and the platform provides built-in alerting for failed events, which you currently monitor through custom CloudWatch dashboards."
+    },
+    {
+      "speaker": "Marcus Webb",
+      "text": "Fine, I’m still skeptical, but I need to see concrete numbers-like latency, cost per million events, and how quickly we could get a pilot running without disrupting our existing Redshift jobs."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "Marcus, can you walk us through exactly how your current homegrown pipeline works when you get a brand-new event type into the system?"
+    },
+    {
+      "speaker": "Marcus Webb",
+      "text": "Sure, the short version is we push the raw event into our Kafka topics, then a Flink job does a light transformation and writes it into a staging table in Redshift, and finally our Looker model picks it up after the nightly batch runs."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "And how long does that actually take from the moment the code ships to the moment you can see that event on a Looker dashboard?"
+    },
+    {
+      "speaker": "Marcus Webb",
+      "text": "Honestly, it’s a bit of a moving target. In the best case we see it in about three weeks, but if the schema change hits a validation snag or we have to coordinate a deployment window, it can stretch to six weeks before the dashboard reflects the new field."
+    },
+    {
+      "speaker": "Elena Vasquez",
+      "text": "That six-week lag is what kills us on fast-moving experiments; we end up making decisions on stale data or, worse, we miss the window entirely."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "So just to confirm, three weeks is the typical latency, but six weeks is not uncommon when there are hiccups?"
+    },
+    {
+      "speaker": "Marcus Webb",
+      "text": "Exactly. The three-week figure is what we tell the product folks, but the reality is we have to file a ticket to data engineering, they run a migration script, we wait for the next ETL window, and then we rebuild the Looker view. If anything goes wrong in the migration, we rollback and that adds another week or two."
+    },
+    {
+      "speaker": "Sarah Chen",
+      "text": "That’s a huge gap compared to near-real-time. With Cadence, the same event would be queryable in under a minute after it lands in the log, and the catalog would auto-populate so you’d see it in the UI immediately."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "Got it. So the baseline is three weeks, with a possible stretch to six, depending on validation and deployment constraints. That’s the number we need to improve dramatically."
+    },
+    {
+      "speaker": "Sarah Chen",
+      "text": "Okay, let me just step back and look at the actual event taxonomy you’re dealing with-because that’s really the crux of the latency issue."
+    },
+    {
+      "speaker": "Marcus Webb",
+      "text": "Sure, go ahead."
+    },
+    {
+      "speaker": "Sarah Chen",
+      "text": "From what Elena mentioned earlier, and what I’ve seen in the sample payloads you sent over, you’re currently tracking roughly four hundred distinct event types across the freight-tracking stack."
+    },
+    {
+      "speaker": "Elena Vasquez",
+      "text": "Four hundred sounds about right, maybe a little more if you count the internal debug events."
+    },
+    {
+      "speaker": "Sarah Chen",
+      "text": "Right, and the problem is those four hundred aren’t following any consistent naming convention. I’ve seen things like order_created, orderCreated, OrderCreatedV2, and even ordr_crtd all representing essentially the same business action."
+    },
+    {
+      "speaker": "Marcus Webb",
+      "text": "Yeah, we tried to standardize last year, but the teams just kept adding their own prefixes."
+    },
+    {
+      "speaker": "Sarah Chen",
+      "text": "Exactly, and that fragmentation forces each downstream consumer-your Looker models, your alerts, even the ad-hoc SQL scripts-to maintain a mapping layer that’s basically a giant, manually-updated lookup table."
+    },
+    {
+      "speaker": "Elena Vasquez",
+      "text": "We built a spreadsheet for that, but it’s a nightmare to keep current."
+    },
+    {
+      "speaker": "Sarah Chen",
+      "text": "I’ve also noticed you attempted two formal taxonomy projects in the past 18 months. The first, around Q2 2023, tried to introduce a hierarchical schema-like shipment.event and shipment.status-but the rollout stalled because the engineering squads couldn’t agree on the depth of the hierarchy and you ended up with half the services still emitting the old flat keys."
+    },
+    {
+      "speaker": "Marcus Webb",
+      "text": "We spent a lot of time on that, and then the product team changed priorities, so the effort just fizzled out."
+    },
+    {
+      "speaker": "Sarah Chen",
+      "text": "The second attempt, in early 2024, was a more aggressive refactor: you introduced a versioned namespace- v1 and v2 prefixes-but the migration scripts you wrote for Redshift didn’t handle the edge cases where an event payload added a new optional field, so the ETL jobs started failing and you had to roll back the whole thing."
+    },
+    {
+      "speaker": "Elena Vasquez",
+      "text": "That’s when we realized we needed a better way to manage schema evolution without breaking the pipeline."
+    },
+    {
+      "speaker": "Sarah Chen",
+      "text": "Exactly, and that’s where Cadence’s version-controlled catalog shines. Every time you define a new event or modify an existing one, the change is recorded as a new immutable revision. Your downstream consumers can opt-in to a specific revision or automatically pick the latest compatible version, which eliminates the need for those manual spreadsheets and ad-hoc migration scripts."
+    },
+    {
+      "speaker": "Marcus Webb",
+      "text": "So you’re saying we could keep the 400-plus events, but have a single source of truth that never breaks the ETL?"
+    },
+    {
+      "speaker": "Sarah Chen",
+      "text": "Precisely. The catalog also enforces a naming policy-snake_case, singular nouns, and a required prefix-so new events get auto-validated against the policy before they’re accepted. That alone cut onboarding time for a similar client from three weeks down to under an hour, because there’s no back-and-forth ticketing to data engineering."
+    },
+    {
+      "speaker": "Elena Vasquez",
+      "text": "That would free up a lot of bandwidth for our product analysts who are currently stuck filing tickets just to get a new field into Looker."
+    },
+    {
+      "speaker": "Sarah Chen",
+      "text": "And because the catalog is baked into the ingest pipeline, any schema drift triggers an alert instantly, so you never have a silent failure like the pricing experiment you mentioned earlier."
+    },
+    {
+      "speaker": "Marcus Webb",
+      "text": "Yeah, the pricing experiment you mentioned-let me walk you through that because it was a perfect storm of our data gaps."
+    },
+    {
+      "speaker": "Elena Vasquez",
+      "text": "We launched the new tiered pricing model on April 3rd, thinking we'd see lift in the next couple of weeks, but the event we relied on to trigger the Looker dashboard never actually fired."
+    },
+    {
+      "speaker": "Sarah Chen",
+      "text": "Right, the event was supposed to be ‘price_change_initiated’, but the service emitting it was still using the old ‘priceUpdate’ key from the legacy codebase."
+    },
+    {
+      "speaker": "Marcus Webb",
+      "text": "Exactly. The devs thought they’d updated the schema in the last sprint, but the change never made it into production because the CI pipeline failed on a missing column, and nobody caught that failure."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "So the experiment ran for how long before anyone realized the data was off?"
+    },
+    {
+      "speaker": "Elena Vasquez",
+      "text": "Five weeks. We only noticed when the retention report for that segment showed a flat line, and the product team started digging, only to find the Looker model was still pulling from the old event table that hadn't been refreshed since February."
+    },
+    {
+      "speaker": "Sarah Chen",
+      "text": "And because your pipeline has a three-week latency to land new events in Redshift, by the time the ETL caught up, the experiment was already over, and the data we finally got was too stale to be actionable."
+    },
+    {
+      "speaker": "Marcus Webb",
+      "text": "We tried to manually back-fill the missing events, but the schema mismatch caused the Redshift copy job to error out on every row, so we ended up with a half-filled table and a lot of manual SQL hacks that still didn’t give us a clean picture."
+    },
+    {
+      "speaker": "Elena Vasquez",
+      "text": "The worst part was the downstream impact-our analysts spent two weeks writing ad-hoc queries to estimate the lift, and the board asked for the numbers yesterday, so we had to present a guess rather than solid data, which hurt credibility across the org."
+    },
+    {
+      "speaker": "Marcus Webb",
+      "text": "Alright, before we get too excited, I need to understand the compliance side-what’s your data residency model? Are our event payloads stored only in US regions, or do you spill over to Europe or Asia for redundancy?"
+    },
+    {
+      "speaker": "Sarah Chen",
+      "text": "We operate a multi-region architecture, but we can lock you into a single-region deployment. For US-based customers like Meridian we spin up all storage and compute in us-east-2 by default, and we never replicate to another continent unless you explicitly enable cross-region disaster recovery."
+    },
+    {
+      "speaker": "Marcus Webb",
+      "text": "Good, because our board is nervous about GDPR exposure. Speaking of compliance, do you have SOC 2 Type II certification? I’ve seen vendors claim it, but the audit reports are often outdated."
+    },
+    {
+      "speaker": "Sarah Chen",
+      "text": "Yes, we’re SOC 2 Type II certified as of March 2024, and we’ve had a fresh audit completed in February 2025. I can share the attestation report after the call."
+    },
+    {
+      "speaker": "Marcus Webb",
+      "text": "Okay, that covers the audit, but we also have a data residency clause in our vendor contract that says all raw event data must stay within our VPC. Can Cadence run inside our VPC, or is it always a SaaS endpoint you host?"
+    },
+    {
+      "speaker": "Sarah Chen",
+      "text": "We have an enterprise-tier offering that lets you deploy the ingest collectors and the catalog service as Docker containers inside your own VPC. It’s a private-link setup, so traffic never traverses the public internet. The only piece that remains SaaS-hosted is the optional analytics UI, but we can also self-host that if needed."
+    },
+    {
+      "speaker": "Marcus Webb",
+      "text": "If we go the private-link route, what’s the lead time? We can’t afford a six-month rollout; we need something in the next quarter to meet the board’s retention deadline."
+    },
+    {
+      "speaker": "Sarah Chen",
+      "text": "The VPC deployment typically adds four to six weeks to the onboarding timeline because we have to provision the VPC endpoints, run security reviews, and configure IAM roles. After that, the actual ingest pipeline can be turned on in a day."
+    },
+    {
+      "speaker": "Marcus Webb",
+      "text": "Four weeks is still a lot, but at least it’s bounded. One more thing-do you support encryption at rest with customer-managed keys, or are you using AWS-managed KMS only?"
+    },
+    {
+      "speaker": "Sarah Chen",
+      "text": "We support both. For customers with strict key-management policies we can integrate with your own KMS key ARN, so all data at rest is encrypted with a key you control. If you prefer the default, we fall back to AWS-managed keys."
+    },
+    {
+      "speaker": "Marcus Webb",
+      "text": "Alright, that answers most of my concerns. I’ll need to get the SOC 2 report and the VPC deployment checklist, but assuming those check out, we can move forward on the technical evaluation."
+    },
+    {
+      "speaker": "Sarah Chen",
+      "text": "Sure, let me lay out the end-to-end ingest flow so you can see exactly where the VPC piece fits in."
+    },
+    {
+      "speaker": "Marcus Webb",
+      "text": "Please, go ahead."
+    },
+    {
+      "speaker": "Sarah Chen",
+      "text": "First, we have a lightweight collector agent that runs as a Docker container on any host you choose-usually right next to your existing event emitters. The agent batches events in memory, compresses them with Snappy, and pushes them over a TLS-encrypted channel to a regional load balancer we provision inside your VPC."
+    },
+    {
+      "speaker": "Elena Vasquez",
+      "text": "So the collector lives inside our network, not in your SaaS cloud?"
+    },
+    {
+      "speaker": "Sarah Chen",
+      "text": "Exactly. Because it’s a container you control, you can place it behind your own security groups, and we never expose the raw payloads to the public internet. The load balancer then forwards the stream to a set of ingest workers, also containerized, that run in a private subnet."
+    },
+    {
+      "speaker": "Marcus Webb",
+      "text": "What do those workers do?"
+    },
+    {
+      "speaker": "Sarah Chen",
+      "text": "They perform schema validation against the catalog we ship-remember those 400 event types you mentioned? We’ve built a flexible JSON schema registry that you can extend. The workers reject any malformed event, log the reason to CloudWatch, and only forward clean records to the write-ahead buffer."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "And that buffer is where the data lands for you?"
+    },
+    {
+      "speaker": "Sarah Chen",
+      "text": "Right, the buffer feeds into an Amazon Kinesis Data Stream that we also stand up inside your VPC. From there, a Kinesis Firehose delivery stream writes directly to an encrypted S3 bucket you own, using the customer-managed KMS key you provide. No data ever leaves your account until it’s in S3."
+    },
+    {
+      "speaker": "Marcus Webb",
+      "text": "After S3, do you still have a SaaS component?"
+    },
+    {
+      "speaker": "Sarah Chen",
+      "text": "Only the optional analytics UI and the catalog service UI, which can be run as a separate set of containers behind a private-link endpoint if you want full isolation. The core ingest-collector, workers, Kinesis, S3-can be 100% on-prem in your VPC, satisfying the residency clause."
+    },
+    {
+      "speaker": "Elena Vasquez",
+      "text": "That sounds like it aligns with our compliance roadmap."
+    },
+    {
+      "speaker": "Sarah Chen",
+      "text": "The only extra steps are the VPC endpoint creation, IAM role trust relationships, and a short security-review sprint. That’s why we quote four to six weeks on top of the standard onboarding timeline. Once the infrastructure is in place, flipping the ingest on is a matter of minutes, and you start seeing events in your S3 bucket within a few seconds of emission."
+    },
+    {
+      "speaker": "Marcus Webb",
+      "text": "Got it. So the timeline is bounded, and the architecture stays entirely inside our cloud environment except for the UI, which we can also containerize if needed."
+    },
+    {
+      "speaker": "Sarah Chen",
+      "text": "Exactly. And we’ll hand you a detailed checklist and a Terraform module to spin everything up, so you’re not reinventing the wheel."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "Okay, before we get too deep into the nuts and bolts, can we talk about the timeline you’re looking at on your side? I know the board has been pushing for a concrete retention number, and you mentioned that’s due by the end of the quarter."
+    },
+    {
+      "speaker": "Marcus Webb",
+      "text": "Right, the board’s deadline is non-negotiable. They want to see a 12% lift in month-over-month retention for the Q3 cohort, and they’ve set the reporting date for September 30th."
+    },
+    {
+      "speaker": "Elena Vasquez",
+      "text": "Exactly. Our product team can’t even start measuring that until the data pipeline is reliable, because right now we spend a day just pulling logs, filing tickets, and still end up with gaps that make any retention analysis meaningless."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "So if we’re aiming to have the new Cadence pipeline fully operational and feeding clean events into your analytics layer, what’s the latest you could realistically flip the switch and have confidence in the numbers?"
+    },
+    {
+      "speaker": "Sarah Chen",
+      "text": "Given the VPC setup we just walked through, plus the four-to-six-week onboarding window for the security review and Terraform module deployment, we’re looking at roughly six weeks from kickoff to production-ready ingest. That would put us at around mid-August if we start next Monday."
+    },
+    {
+      "speaker": "Marcus Webb",
+      "text": "Mid-August feels tight, especially because we have a legacy migration backlog and a couple of other data initiatives slated for July. If we hit any snags with IAM role trust or the endpoint provisioning, we could be pushed out another two weeks."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "Understood. So to meet the September 30th board deadline, we’d need to have the pipeline not just live but also the downstream dashboards and retention metrics calibrated by early September. That gives us about three weeks of buffer after go-live for validation, right?"
+    },
+    {
+      "speaker": "Elena Vasquez",
+      "text": "Yes, that buffer is critical. We need time to run a sanity-check on the event catalog, reconcile the 400 event types, and make sure the retention calculations line up with the historic baseline before we present to the board."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "Great, then let’s target a kickoff on Monday, October 2nd, which gives us six weeks to get everything in place, plus a two-week validation window, landing us comfortably before the end-of-quarter reporting date. Does that work for everyone?"
+    },
+    {
+      "speaker": "Elena Vasquez",
+      "text": "Okay, so about the budget-"
+    },
+    {
+      "speaker": "Marcus Webb",
+      "text": "We’ve got a ballpark figure for what we’re currently throwing at the data stack, which is roughly $200,000 a year, give or take depending on the extra consulting hours we’ve been pulling in."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "That’s helpful context, thanks. Just to clarify, does that $200k include the Redshift credits, the Looker licensing, and the occasional contractor support for schema cleanup?"
+    },
+    {
+      "speaker": "Marcus Webb",
+      "text": "Yeah, it’s the total spend on the whole pipeline-Redshift, Looker, the two data engineers we have on contract for the taxonomy work, plus the occasional AWS support tickets. It’s not a line item for a single product; it’s the sum of all those pieces."
+    },
+    {
+      "speaker": "Elena Vasquez",
+      "text": "From our side, we’re still figuring out the exact allocation for a new solution. We know we need to free up some of that spend, but we haven’t nailed down the exact numbers we can re-budget yet."
+    },
+    {
+      "speaker": "Sarah Chen",
+      "text": "Understood. If we’re looking at a comparable tier on Cadence, the enterprise package with the VPC option runs about $150,000 annually, plus a one-time professional services fee that’s typically in the $30-$40k range for the initial migration and setup."
+    },
+    {
+      "speaker": "Marcus Webb",
+      "text": "That sounds in the same ballpark, which is promising. The key for us is to make sure we’re not just shifting spend from one vendor to another without gaining real ROI, especially given the current pain points with data latency and reliability."
+    },
+    {
+      "speaker": "Elena Vasquez",
+      "text": "Exactly. We want to see a clear value proposition-like a reduction in manual effort, faster time-to-insight, and lower total cost of ownership over the next two to three years. But we’ll need to run that through finance and get a more concrete figure before we can sign anything."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "Got it. So for now, we’ll treat the $200k current spend as a reference point, and we’ll aim to propose a solution that stays within that range, ideally delivering cost savings or at least a neutral spend with measurable performance gains. Does that align with what you’re hearing?"
+    },
+    {
+      "speaker": "Marcus Webb",
+      "text": "Yes, that aligns. If we can keep the overall spend around $200k and get the reliability and speed improvements we need, we’ll have a solid case to bring back to the CFO."
+    },
+    {
+      "speaker": "Elena Vasquez",
+      "text": "The migration effort is what’s really keeping us up at night - we’ve got 400 event types, custom enrichments, and a bunch of ad-hoc transformations that our engineers built over the years."
+    },
+    {
+      "speaker": "Marcus Webb",
+      "text": "Right, and those transformations are baked into our current ETL scripts. If we have to rewrite all of that in Cadence’s schema, who’s actually going to do the heavy lifting?"
+    },
+    {
+      "speaker": "Sarah Chen",
+      "text": "We’ve got a professional services team that can take on the bulk of the migration - they’ll work side-by-side with your data engineers to map each of your event types into our taxonomy, and they’ll also handle the custom enrichment logic as part of the onboarding package."
+    },
+    {
+      "speaker": "Marcus Webb",
+      "text": "But that $30-$40k fee you mentioned - does that cover the entire rewrite, or just the initial setup? Because we’ve got limited bandwidth, and pulling two of our engineers off the current roadmap for a month could jeopardize other commitments."
+    },
+    {
+      "speaker": "Sarah Chen",
+      "text": "The fee is scoped to cover the end-to-end migration for the core event pipeline, including data model translation, validation, and the first round of dashboard rebuilds. Any post-go-live support beyond the standard 30-day warranty would be billed separately, but the initial work is fully covered."
+    },
+    {
+      "speaker": "Elena Vasquez",
+      "text": "We’d still need to keep some of our team involved to verify business logic - for example, the retention flags we use for the carrier-specific cohorts. Those aren’t just technical fields, they’re tied to product decisions."
+    },
+    {
+      "speaker": "Marcus Webb",
+      "text": "Exactly, and there’s the question of ownership after go-live - will Cadence hand us the pipelines and we maintain them, or will you continue to operate them as a managed service?"
+    },
+    {
+      "speaker": "Sarah Chen",
+      "text": "Our enterprise tier includes a managed service option where we run the pipelines in your VPC and provide SLAs, but we also train your team to take over if you prefer. The handoff is typically a phased approach: we run it for the first 60 days, you shadow, then you assume full ownership."
+    },
+    {
+      "speaker": "Marcus Webb",
+      "text": "That phased handoff sounds reasonable, but we need to know the exact resource commitment on our side - are we looking at, say, 2-3 weeks of full-time engineering effort, or more like 4-5 weeks spread out?"
+    },
+    {
+      "speaker": "Sarah Chen",
+      "text": "Based on the scope you described, we’d estimate roughly 120 engineer-hours from your side, which translates to about three weeks of one full-time engineer or six weeks split between two. Most of that time is front-loaded for schema mapping and validation."
+    },
+    {
+      "speaker": "Elena Vasquez",
+      "text": "Okay, so if we budget for two engineers part-time over six weeks, plus the $35k migration fee, that fits within our rough $200k ceiling, assuming we see the latency improvements we need."
+    },
+    {
+      "speaker": "Marcus Webb",
+      "text": "Got it. I just want to make sure we’re not left with a half-baked pipeline that still requires us to write custom code for edge cases."
+    },
+    {
+      "speaker": "Sarah Chen",
+      "text": "We’ll do a comprehensive gap analysis during the discovery phase, document every custom transformation, and either replicate it in Cadence or suggest an alternative that meets the same business outcome - no hidden surprises."
+    },
+    {
+      "speaker": "Elena Vasquez",
+      "text": "Sounds like we have a path forward. Let’s get the detailed migration plan in writing so we can run it by finance and get the final sign-off."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "Alright, I hear the concerns about scope and bandwidth, and I think we can de-risk this by starting with a very focused technical evaluation rather than committing to a full migration right away."
+    },
+    {
+      "speaker": "Marcus Webb",
+      "text": "What do you mean by ‘focused’? We’ve got a lot of moving parts."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "Specifically, we could pick one high-impact product surface - for example, the carrier-specific retention flags you mentioned - and run it through our pipeline end-to-end, from ingestion to the Looker dashboard, just for that slice."
+    },
+    {
+      "speaker": "Sarah Chen",
+      "text": "We’ve actually done a similar proof-of-concept with a client in the same space, and it only took about three weeks to stand up the ingest, map the taxonomy, and get the dashboards live for that one feature set."
+    },
+    {
+      "speaker": "Elena Vasquez",
+      "text": "Three weeks sounds doable, but we’d still need to keep our engineers in the loop for validation. How much of our time would that take?"
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "We’d ask for roughly 20-hour blocks from one of your data engineers each week - mainly to confirm that the enrichment logic for the retention flags matches what you currently have, and to sign off on the schema mapping."
+    },
+    {
+      "speaker": "Marcus Webb",
+      "text": "And the cost? We can’t keep throwing money at pilots forever."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "The scoped evaluation would be covered under a reduced-scope fee of $12,000, which includes all the professional services, the VPC setup, and a 30-day support window after the pilot goes live."
+    },
+    {
+      "speaker": "Sarah Chen",
+      "text": "If the pilot meets the latency targets - say, sub-hour latency versus the current three-week lag - we can then agree on a phased rollout plan, but you’d have concrete data to present to finance."
+    },
+    {
+      "speaker": "Elena Vasquez",
+      "text": "That sounds reasonable. Let’s lock in the carrier-specific retention flags as the pilot, schedule the engineering time, and get a written statement of scope and cost by end of day."
+    },
+    {
+      "speaker": "Sarah Chen",
+      "text": "Sure thing, I’ll email you the architecture overview right after this call-it's the one that outlines the ingest pipeline, the schema-mapping layer, and the VPC provisioning steps we discussed, plus a rough timeline for the three-week pilot."
+    },
+    {
+      "speaker": "Elena Vasquez",
+      "text": "Great, and I’ll start pulling the full event catalogue from our Redshift dump; that’s about 400 event types, so I’ll export the JSON schema and the last month’s sample data and drop it into the shared S3 bucket you gave us."
+    },
+    {
+      "speaker": "Marcus Webb",
+      "text": "Just to confirm, the catalogue includes the legacy naming conventions that broke the last pricing experiment, right? We need to flag those so we don’t repeat the same mistake."
+    },
+    {
+      "speaker": "Sarah Chen",
+      "text": "Exactly, Marcus. I’ll add a note in the doc to highlight those problematic prefixes and we’ll set up a validation rule in the Cadence ingest to catch any mismatched fields before they hit Looker."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "Okay, so timeline: you’ll have the architecture doc in your inbox by 5 pm EST, Elena, you’ll have the event dump uploaded by tomorrow morning, and then we’ll schedule a kickoff sync on Tuesday at 10 am Pacific to walk through the pilot design and lock down the engineer’s 20-hour weekly commitment."
+    },
+    {
+      "speaker": "Elena Vasquez",
+      "text": "Tuesday works for me, and I’ll loop in Jorge from data engineering; he’ll be the point of contact for the schema validation and can allocate the 20-hour blocks we talked about."
+    },
+    {
+      "speaker": "Marcus Webb",
+      "text": "Sounds good. I’ll make sure our security team gets a copy of the VPC design so they can approve the inbound connections before Tuesday’s call."
+    },
+    {
+      "speaker": "Sarah Chen",
+      "text": "I’ll also attach the SOC 2 compliance addendum and the data-residency FAQ to the email, just so you have everything you need for the security review."
+    },
+    {
+      "speaker": "Alex Rivera",
+      "text": "Perfect. If anything changes before Tuesday, just ping me or Sarah, and we’ll adjust. Otherwise, we’ll reconvene on Tuesday, review the pilot specs, and confirm the next steps toward the phased rollout."
+    }
+  ]
+}
