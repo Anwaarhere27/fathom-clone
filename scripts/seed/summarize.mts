@@ -10,7 +10,7 @@
  * The generation path is the same code the app uses for uploaded recordings --
  * nothing here is hand-written.
  */
-import { readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { createClient } from "@supabase/supabase-js";
 import {
@@ -39,6 +39,14 @@ const supabase = createClient(
   { auth: { persistSession: false } }
 );
 
+async function hasRows(table: string, meetingId: string) {
+  const { count } = await supabase
+    .from(table)
+    .select("id", { count: "exact", head: true })
+    .eq("meeting_id", meetingId);
+  return Boolean(count && count > 0);
+}
+
 const { data: template } = await supabase.from("demo_template").select("user_id").maybeSingle();
 if (!template?.user_id) {
   console.error("No demo template user. Run: npm run seed:load");
@@ -55,13 +63,22 @@ if (error) throw error;
 for (const meeting of meetings ?? []) {
   console.log(`\n${meeting.title}`);
 
-  const { count } = await supabase
+  const { data: already } = await supabase
     .from("summaries")
-    .select("id", { count: "exact", head: true })
+    .select("template")
     .eq("meeting_id", meeting.id);
 
-  if (count && count > 0 && !force) {
-    console.log("  already summarised, skipping");
+  const have = new Set((already ?? []).map((s) => s.template as SummaryTemplate));
+
+  const primary = defaultTemplateFor(meeting.title);
+  const wanted: SummaryTemplate[] = [...new Set<SummaryTemplate>([primary, "general", ...TEMPLATE_IDS])];
+
+  const missingTemplates = force ? wanted : wanted.filter((t) => !have.has(t));
+  const needsItems = force || !(await hasRows("action_items", meeting.id));
+  const needsEmail = force || !(await hasRows("follow_up_emails", meeting.id));
+
+  if (!missingTemplates.length && !needsItems && !needsEmail) {
+    console.log("  already complete, skipping");
     continue;
   }
 
@@ -85,11 +102,26 @@ for (const meeting of meetings ?? []) {
     if (page.length < 1000) break;
   }
 
-  console.log(`  ${lines.length} segments -> condensing`);
-  const notes = await buildNotes(lines, (done, total) =>
-    process.stdout.write(`\r  notes ${done}/${total} chunks   `)
-  );
-  console.log(`\r  notes built (${notes.length} chars)        `);
+  // Condensing is the single most expensive step and it does not depend on
+  // which template we are about to write, so cache it on disk. The daily token
+  // budget is 200k; re-condensing five meetings would spend a quarter of it to
+  // produce bytes we already had.
+  const notesDir = join(process.cwd(), "seed", "notes");
+  mkdirSync(notesDir, { recursive: true });
+  const notesPath = join(notesDir, `${meeting.id}.md`);
+
+  let notes: string;
+  if (existsSync(notesPath)) {
+    notes = readFileSync(notesPath, "utf8");
+    console.log(`  notes from cache (${notes.length} chars)`);
+  } else {
+    console.log(`  ${lines.length} segments -> condensing`);
+    notes = await buildNotes(lines, (done, total) =>
+      process.stdout.write(`\r  notes ${done}/${total} chunks   `)
+    );
+    writeFileSync(notesPath, notes, "utf8");
+    console.log(`\r  notes built (${notes.length} chars)        `);
+  }
 
   const meta = {
     title: meeting.title,
@@ -97,14 +129,9 @@ for (const meeting of meetings ?? []) {
     durationMinutes: Math.round(meeting.duration_seconds / 60),
   };
 
-  // The template this meeting opens on, plus general, plus one more so that
-  // switching template in the UI has somewhere real to switch to.
-  const primary = defaultTemplateFor(meeting.title);
-  const wanted: SummaryTemplate[] = [...new Set<SummaryTemplate>([primary, "general", ...TEMPLATE_IDS])];
-
   if (force) await supabase.from("summaries").delete().eq("meeting_id", meeting.id);
 
-  for (const templateId of wanted) {
+  for (const templateId of missingTemplates) {
     const summary = await summarizeToTemplate(notes, templateId, meta);
     const { error: upsertError } = await supabase.from("summaries").upsert(
       {
@@ -121,27 +148,31 @@ for (const meeting of meetings ?? []) {
     console.log(`  summary [${templateId}]: ${summary.sections.length} sections, ${bullets} bullets`);
   }
 
-  await supabase.from("action_items").delete().eq("meeting_id", meeting.id);
-  const items = await extractActionItems(notes, participants);
-  if (items.length) {
-    const { error: itemsError } = await supabase
-      .from("action_items")
-      .insert(items.map((i) => ({ ...i, meeting_id: meeting.id })));
-    if (itemsError) throw itemsError;
+  if (needsItems) {
+    await supabase.from("action_items").delete().eq("meeting_id", meeting.id);
+    const items = await extractActionItems(notes, participants);
+    if (items.length) {
+      const { error: itemsError } = await supabase
+        .from("action_items")
+        .insert(items.map((i) => ({ ...i, meeting_id: meeting.id })));
+      if (itemsError) throw itemsError;
+    }
+    console.log(`  action items: ${items.length}`);
   }
-  console.log(`  action items: ${items.length}`);
 
-  await supabase.from("follow_up_emails").delete().eq("meeting_id", meeting.id);
-  const email = await draftFollowUpEmail(notes, {
-    title: meeting.title,
-    sender: "Alex Rivera",
-    participants,
-  });
-  const { error: emailError } = await supabase
-    .from("follow_up_emails")
-    .insert({ meeting_id: meeting.id, subject: email.subject, body: email.body });
-  if (emailError) throw emailError;
-  console.log(`  follow-up email: "${email.subject}"`);
+  if (needsEmail) {
+    await supabase.from("follow_up_emails").delete().eq("meeting_id", meeting.id);
+    const email = await draftFollowUpEmail(notes, {
+      title: meeting.title,
+      sender: "Alex Rivera",
+      participants,
+    });
+    const { error: emailError } = await supabase
+      .from("follow_up_emails")
+      .insert({ meeting_id: meeting.id, subject: email.subject, body: email.body });
+    if (emailError) throw emailError;
+    console.log(`  follow-up email: "${email.subject}"`);
+  }
 }
 
 console.log("\nSummaries generated.");

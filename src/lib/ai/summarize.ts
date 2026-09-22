@@ -129,10 +129,20 @@ export async function buildNotes(lines: TranscriptLine[], onProgress?: (done: nu
   return notes.join("\n\n");
 }
 
+/**
+ * Deliberately flat.
+ *
+ * Asking for sections-containing-bullets makes the model emit nested arrays it
+ * routinely fails to balance, and JSON mode then rejects a whole generation
+ * over one stray bracket. A single list with a section label per bullet is
+ * something it gets right every time; grouping is trivial here.
+ */
 interface SummaryResponse {
   one_liner: string;
-  sections: { heading: string; bullets: { text: string; at?: number | string | null }[] }[];
+  bullets: { section: string; text: string; at?: number | string | null }[];
 }
+
+const MAX_BULLETS_PER_SECTION = 6;
 
 export async function summarizeToTemplate(
   notes: string,
@@ -146,13 +156,16 @@ export async function summarizeToTemplate(
       {
         role: "system",
         content:
-          "You write meeting summaries. Output JSON only:\n" +
-          '{"one_liner": "...", "sections": [{"heading": "...", "bullets": [{"text": "...", "at": <seconds or null>}]}]}\n\n' +
-          "- Use EXACTLY the section headings given. Keep their order. If a section has nothing in it, give it one bullet saying so plainly.\n" +
-          '- "at" is the timestamp in SECONDS taken from the [Ns] markers, for the moment the point was made. Use null only when no marker applies.\n' +
-          "- Bullets are specific and short. Include the actual numbers and names.\n" +
+          "You write meeting summaries. Output JSON only, in exactly this shape:\n" +
+          '{"one_liner": "...", "bullets": [{"section": "<one of the given headings>", "text": "...", "at": <seconds or null>}]}\n\n' +
+          '- Every bullet names its "section", copied EXACTLY from the headings given. Do not invent headings.\n' +
+          "- Order the bullets so sections appear in the order given.\n" +
+          `- At most ${MAX_BULLETS_PER_SECTION} bullets per section. Pick the ones that matter; a wall of bullets is not a summary.\n` +
+          "- If a section has nothing in it, give it exactly one bullet saying so plainly.\n" +
+          '- "at" is the timestamp in SECONDS from the [Ns] markers, for the moment the point was made. null when no marker applies.\n' +
+          "- Bullets are specific and short. Keep the actual numbers and names.\n" +
           "- Never invent anything that is not in the notes.\n" +
-          "- one_liner is a single sentence, under 140 characters, that says what actually happened.",
+          "- one_liner is one sentence, under 140 characters, saying what actually happened.",
       },
       {
         role: "user",
@@ -174,21 +187,34 @@ ${notes}`,
 
   const parsed = parseJson<SummaryResponse>(raw);
 
-  const sections: SummarySection[] = (parsed.sections ?? []).map((section) => ({
-    heading: section.heading,
-    bullets: (section.bullets ?? [])
-      .filter((b) => b && typeof b.text === "string" && b.text.trim())
-      .map((b) => {
-        const seconds = typeof b.at === "string" ? Number(b.at) : b.at;
-        return {
-          text: b.text.trim(),
-          start_ms:
-            typeof seconds === "number" && Number.isFinite(seconds) && seconds >= 0
-              ? Math.round(seconds * 1000)
-              : null,
-        };
-      }),
-  }));
+  // Group into the fixed headings. Anything the model labelled with a heading
+  // we did not ask for is dropped rather than shown as a stray section.
+  const grouped = new Map<string, SummarySection["bullets"]>(spec.sections.map((h) => [h, []]));
+
+  for (const bullet of parsed.bullets ?? []) {
+    if (!bullet || typeof bullet.text !== "string" || !bullet.text.trim()) continue;
+
+    const heading = spec.sections.find(
+      (h) => h.toLowerCase() === String(bullet.section ?? "").trim().toLowerCase()
+    );
+    if (!heading) continue;
+
+    const target = grouped.get(heading)!;
+    if (target.length >= MAX_BULLETS_PER_SECTION) continue;
+
+    const seconds = typeof bullet.at === "string" ? Number(bullet.at) : bullet.at;
+    target.push({
+      text: bullet.text.trim(),
+      start_ms:
+        typeof seconds === "number" && Number.isFinite(seconds) && seconds >= 0
+          ? Math.round(seconds * 1000)
+          : null,
+    });
+  }
+
+  const sections: SummarySection[] = spec.sections
+    .map((heading) => ({ heading, bullets: grouped.get(heading)! }))
+    .filter((section) => section.bullets.length > 0);
 
   return {
     one_liner: (parsed.one_liner ?? "").trim() || null,

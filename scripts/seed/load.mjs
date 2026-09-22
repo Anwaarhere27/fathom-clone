@@ -104,7 +104,9 @@ async function ensureBucket() {
   }
   const { error } = await supabase.storage.createBucket(BUCKET, {
     public: true,
-    fileSizeLimit: "200MB",
+    // The free tier caps uploads at 50 MB project-wide, and a bucket limit
+    // above the global one is rejected outright. The longest meeting is 25 MB.
+    fileSizeLimit: "50MB",
     allowedMimeTypes: ["audio/mpeg", "audio/wav", "video/mp4", "audio/mp4", "audio/webm", "video/webm"],
   });
   if (error) throw error;

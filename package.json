@@ -14,7 +14,7 @@
     "seed:audio": "node scripts/seed/synthesize.mjs",
     "seed:setup-tts": "node scripts/seed/setup-piper.mjs",
     "seed:load": "node scripts/seed/load.mjs",
-    "seed:summarize": "tsx scripts/seed/summarize.ts"
+    "seed:summarize": "tsx scripts/seed/summarize.mts"
   },
   "dependencies": {
     "@breezystack/lamejs": "^1.2.7",
