@@ -1,4 +1,4 @@
-import { complete, parseJson, TEXT_MODEL } from "./groq";
+import { complete, parseJson, textModel } from "./groq";
 import type { SummarySection, SummaryTemplate } from "../types";
 
 export interface TranscriptLine {
@@ -293,7 +293,7 @@ ${notes}`,
   return {
     one_liner: (parsed.one_liner ?? "").trim() || null,
     sections,
-    model: TEXT_MODEL,
+    model: textModel(),
   };
 }
 
