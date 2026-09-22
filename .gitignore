@@ -1,0 +1,10 @@
+node_modules/
+dist/
+build/
+.env
+.env.local
+*.log
+
+# .agent-logs/ is deliberately NOT ignored. It ships with the repo.
+# The one exception is the hook's own crash log, which is diagnostics, not capture.
+.agent-logs/capture-errors.log

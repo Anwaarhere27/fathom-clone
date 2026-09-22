@@ -1,0 +1,4 @@
+* text=auto eol=lf
+
+# Capture logs are a verbatim record. Never let a checkout rewrite their bytes.
+.agent-logs/** -text
