@@ -10,9 +10,11 @@
     "redact": "node scripts/redact-agent-logs.mjs",
     "migrate": "node scripts/migrate.mjs",
     "db:status": "node scripts/db-status.mjs",
-    "seed:generate": "node scripts/seed/generate.mjs"
+    "seed:generate": "node scripts/seed/generate.mjs",
+    "seed:audio": "node scripts/seed/synthesize.mjs"
   },
   "dependencies": {
+    "@breezystack/lamejs": "^1.2.7",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.117.0",
     "clsx": "^2.1.1",

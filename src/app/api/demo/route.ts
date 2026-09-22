@@ -27,7 +27,9 @@ export async function POST() {
     target_user: data.user.id,
   });
 
-  if (cloneError) {
+  // Before the seed has been loaded there is nothing to clone. Let the visitor
+  // in anyway rather than dead-ending them on an empty workspace.
+  if (cloneError && !/demo template not seeded/i.test(cloneError.message)) {
     return NextResponse.json({ error: cloneError.message }, { status: 500 });
   }
 
