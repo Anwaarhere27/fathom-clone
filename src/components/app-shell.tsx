@@ -8,6 +8,7 @@ import {
   CalendarDays,
   LogOut,
   Menu,
+  Mic,
   MessageSquareText,
   Search,
   Upload,
@@ -23,6 +24,7 @@ const NAV = [
   { href: "/upcoming", label: "Upcoming", icon: CalendarDays },
   { href: "/search", label: "Search", icon: Search },
   { href: "/ask", label: "Ask AI", icon: MessageSquareText },
+  { href: "/record", label: "Record", icon: Mic },
   { href: "/upload", label: "Upload", icon: Upload },
 ];
 
