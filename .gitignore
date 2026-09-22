@@ -56,3 +56,6 @@ tools/
 # Generated audio: large, rebuildable, uploaded to Supabase Storage
 seed/audio/
 seed/generate.log
+
+# The template ships; only the filled-in files are secret.
+!.env.example
