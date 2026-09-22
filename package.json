@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "redact": "node scripts/redact-agent-logs.mjs"
+    "redact": "node scripts/redact-agent-logs.mjs",
+    "migrate": "node scripts/migrate.mjs",
+    "db:status": "node scripts/db-status.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
@@ -16,6 +18,7 @@
     "groq-sdk": "^1.6.0",
     "lucide-react": "^1.47.0",
     "next": "16.3.5",
+    "pg": "^8.23.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "tailwind-merge": "^3.7.0"
@@ -23,6 +26,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
